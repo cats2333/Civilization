@@ -76,7 +76,8 @@ void UHexMapEditor::BeginPlay()
 
     SelectColor(0);
 
-}void UHexMapEditor::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+}
+void UHexMapEditor::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
@@ -87,11 +88,16 @@ void UHexMapEditor::BeginPlay()
     }
     else
     {
+        if (bIsDragging)
+        {
+            bIsDragging = false;
+            bHasSetRoad = false;
+            UE_LOG(LogTemp, Log, TEXT("Mouse released, drag ended, bHasSetRoad reset to false"));
+        }
         PreviousCell = nullptr;
-        bIsDragging = false;
     }
-
-}void UHexMapEditor::ShowEditorUI(bool bVisible)
+}
+void UHexMapEditor::ShowEditorUI(bool bVisible)
 {
 }void UHexMapEditor::HandleInput()
 {
@@ -191,36 +197,46 @@ void UHexMapEditor::EditCell(AHexCell* Cell)
     case EEditMode::Elevation:
         Cell->SetElevation(ActiveElevation);
         break;
-    case EEditMode::River:
-        switch (RiverMode)
+    case EEditMode::Road:
+        switch (RoadMode)
         {
-        case EEditRiverMode::No:
-            Cell->RemoveRiver();
+        case EEditRoadMode::No:
+            Cell->RemoveRoad();
+            //if (Cell->Chunk)
+            //{
+            //    Cell->Chunk->ClearRoadDecals(); // 清理贴花
+            //    Cell->Chunk->Refresh(); // 只刷新网格
+            //}
             break;
-        case EEditRiverMode::Yes:
-            /*if (bIsDragging)
+        case EEditRoadMode::Yes:
+            if (bIsDragging && PreviousCell && PreviousCell != Cell && !bHasSetRoad)
+                //if ( PreviousCell && PreviousCell != Cell)
             {
-                AHexCell* OtherCell = Cell->GetNeighbor(HexMetrics::Opposite(DragDirection));
-                if (OtherCell)
-                {
-                    OtherCell->SetOutgoingRiver(DragDirection);
-                }
-            }*/
-            if (bIsDragging && PreviousCell && PreviousCell != Cell) {
-                PreviousCell->SetOutgoingRiver(DragDirection);
-                UE_LOG(LogTemp, Log, TEXT("River from (%d, %d) to (%d, %d), Direction: %d"),
+                PreviousCell->SetOutgoingRoad(DragDirection);
+                bHasSetRoad = true;
+                UE_LOG(LogTemp, Log, TEXT("Road from (%d, %d) to (%d, %d), Direction: %d"),
                     PreviousCell->Coordinates.X, PreviousCell->Coordinates.Z,
                     Cell->Coordinates.X, Cell->Coordinates.Z,
                     static_cast<int32>(DragDirection));
+
+               
+                // 直接生成贴花，不调用 TriangulateCells
+                if (PreviousCell->Chunk)
+                {
+                    FVector Start = PreviousCell->GetPosition();
+                    FVector End = Cell->GetPosition();
+                    PreviousCell->Chunk->CreateRoadDecal(Start, End, 0.5f, PreviousCell->Chunk->RoadDecalMaterial);
+                }
             }
             break;
-        case EEditRiverMode::Ignore:
+        case EEditRoadMode::Ignore:
         default:
             break;
         }
         break;
     }
 }
+
 void UHexMapEditor::SetBrushSize(float Size)
 {
     BrushSize = FMath::RoundToInt(Size);
@@ -308,10 +324,10 @@ TArray<FString> UHexMapEditor::GetEditModeOptions()
     return Options;
 }
 
-TArray<FString> UHexMapEditor::GetRiverModeOptions()
+TArray<FString> UHexMapEditor::GetRoadModeOptions()
 {
     TArray<FString> Options;
-    UEnum* Enum = StaticEnum<EEditRiverMode>();
+    UEnum* Enum = StaticEnum<EEditRoadMode>();
     if (Enum)
     {
         for (int32 i = 0; i < Enum->NumEnums() - 1; i++)

@@ -21,7 +21,7 @@ public:
     AHexCell();
 
     UPROPERTY()
-    AHexGridChunk* Chunk; 
+    AHexGridChunk* Chunk;
 
     void SetupCell(int32 X, int32 Z, const FVector& Position);
 
@@ -48,54 +48,45 @@ public:
 
     HexMetrics::EHexEdgeType GetEdgeType(EHexDirection Direction);
     HexMetrics::EHexEdgeType GetEdgeType(AHexCell* OtherCell);
+
     FVector GetPosition() const { return GetActorLocation(); }
 
-    // river
-    void RemoveOutgoingRiver();
-    void RemoveIncomingRiver();
-    void RemoveRiver();
-    void SetOutgoingRiver(EHexDirection Direction);
-    
-    UPROPERTY(BlueprintReadOnly, Category = "River")
-    bool bHasIncomingRiver = false;
+    // Road
+    UFUNCTION(BlueprintCallable, Category = "Road")
+    void RemoveOutgoingRoad();
 
-    UPROPERTY(BlueprintReadOnly, Category = "River")
-    bool bHasOutgoingRiver = false;
+    UFUNCTION(BlueprintCallable, Category = "Road")
+    void RemoveIncomingRoad();
 
-    UPROPERTY(BlueprintReadOnly, Category = "River")
-    EHexDirection IncomingRiver = EHexDirection::NE;
+    UFUNCTION(BlueprintCallable, Category = "Road")
+    void RemoveRoad();
 
-    UPROPERTY(BlueprintReadOnly, Category = "River")
-    EHexDirection OutgoingRiver = EHexDirection::NE;
+    UFUNCTION(BlueprintCallable, Category = "Road")
+    void SetOutgoingRoad(EHexDirection Direction);
 
-    UFUNCTION(BlueprintCallable, Category = "River")
-    bool HasRiver() const
-    {
-        bool Result = bHasIncomingRiver || bHasOutgoingRiver;
-        UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d) HasRiver: %d"), Coordinates.X, Coordinates.Z, Result);
-        return Result;
-    }
+    UPROPERTY(BlueprintReadOnly, Category = "Road")
+    bool bHasIncomingRoad = false;
 
-    UFUNCTION(BlueprintCallable, Category = "River")
-    bool HasRiverBeginOrEnd() const { return bHasIncomingRiver != bHasOutgoingRiver; }
+    UPROPERTY(BlueprintReadOnly, Category = "Road")
+    bool bHasOutgoingRoad = false;
 
-    UFUNCTION(BlueprintCallable, Category = "River")
-    bool HasRiverThroughEdge(EHexDirection Direction) const
-    {
-        bool Result = (bHasIncomingRiver && IncomingRiver == Direction) ||
-            (bHasOutgoingRiver && OutgoingRiver == Direction);
-        UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d) HasRiverThroughEdge in direction %d: %d"),
-            Coordinates.X, Coordinates.Z, static_cast<int32>(Direction), Result);
-        return Result;
-    }
+    UPROPERTY(BlueprintReadOnly, Category = "Road")
+    EHexDirection IncomingRoad = EHexDirection::NE;
 
-    UFUNCTION(BlueprintCallable, Category = "HexCell|River")
-    float GetStreamBedZ() const
-    {
-        return (Elevation + HexMetrics::StreamBedElevationOffset) * HexMetrics::ElevationStep;
-    }
+    UPROPERTY(BlueprintReadOnly, Category = "Road")
+    EHexDirection OutgoingRoad = EHexDirection::NE;
 
-    // 新增刷新方法
+    UFUNCTION(BlueprintCallable, Category = "Road")
+    bool HasRoad() const;
+
+    UFUNCTION(BlueprintCallable, Category = "Road")
+    bool HasRoadBeginOrEnd() const { return bHasIncomingRoad != bHasOutgoingRoad; }
+
+    UFUNCTION(BlueprintCallable, Category = "Road")
+    bool HasRoadThroughEdge(EHexDirection Direction) const;
+
+    // 刷新方法
+    UFUNCTION(BlueprintCallable, Category = "Hex Cell")
     void RefreshSelfOnly();
 private:
     UPROPERTY()

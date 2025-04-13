@@ -1,10 +1,7 @@
 #include "HexCell.h"
-#include "Components/WidgetComponent.h"
-#include "Blueprint/UserWidget.h"
-#include "Components/TextBlock.h"
-#include "Components/SceneComponent.h"
 #include "HexMetrics.h"
 #include "HexDirection.h"
+
 AHexCell::AHexCell()
 {
     PrimaryActorTick.bCanEverTick = false;
@@ -16,69 +13,42 @@ AHexCell::AHexCell()
     RootComponent = SceneRoot;
 
     Color = FLinearColor::White;
+}
 
-}void AHexCell::SetupCell(int32 X, int32 Z, const FVector& Position)
+void AHexCell::SetupCell(int32 X, int32 Z, const FVector& Position)
 {
     SetActorLocation(Position);
 
     Coordinates = FHexCoordinates::FromOffsetCoordinates(X, Z);
     Coordinates.Y = -Coordinates.X - Coordinates.Z;
     UE_LOG(LogTemp, Log, TEXT("Cell at position (%d, %d) has coordinates (%d, %d, %d)"), X, Z, Coordinates.X, Coordinates.Y, Coordinates.Z);
+}
 
-}AHexCell* AHexCell::GetNeighbor(EHexDirection Direction) const
+AHexCell* AHexCell::GetNeighbor(EHexDirection Direction) const
 {
     return Neighbors[static_cast<int32>(Direction)];
-}void AHexCell::SetNeighbor(EHexDirection Direction, AHexCell* Cell)
+}
+
+void AHexCell::SetNeighbor(EHexDirection Direction, AHexCell* Cell)
 {
     Neighbors[static_cast<int32>(Direction)] = Cell;
     if (Cell)
     {
         Cell->Neighbors[static_cast<int32>(HexMetrics::Opposite(Direction))] = this;
     }
-}HexMetrics::EHexEdgeType AHexCell::GetEdgeType(EHexDirection Direction)
+}
+
+HexMetrics::EHexEdgeType AHexCell::GetEdgeType(EHexDirection Direction)
 {
     AHexCell* Neighbor = GetNeighbor(Direction);
     if (!Neighbor)
     {
-        return HexMetrics::EHexEdgeType::Cliff; // 没有邻居时，视为悬崖
+        return HexMetrics::EHexEdgeType::Cliff;
     }
     return HexMetrics::GetEdgeType(Elevation, Neighbor->Elevation);
-}void AHexCell::SetElevation(int32 NewElevation)
-{
-    Elevation = NewElevation;
-    FVector Position = GetActorLocation();
-    Position.Z = NewElevation * HexMetrics::ElevationStep;
-    //FVector4 NoiseSample = HexMetrics::SampleNoise(Position);
-    //Position.Z += (NoiseSample.Z * 2.0f - 1.0f) * 1.5f; // 从 1.5f 改成 0.5f
-    SetActorLocation(Position);
+}
 
-    // 检查流出河流
-    if (bHasOutgoingRiver)
-    {
-        AHexCell* OutNeighbor = GetNeighbor(OutgoingRiver);
-        if (OutNeighbor && Elevation < OutNeighbor->Elevation)
-        {
-            RemoveOutgoingRiver();
-        }
-    }
-
-    // 检查流入河流
-    if (bHasIncomingRiver)
-    {
-        AHexCell* InNeighbor = GetNeighbor(IncomingRiver);
-        if (InNeighbor && Elevation > InNeighbor->Elevation)
-        {
-            RemoveIncomingRiver();
-        }
-    }
-
-    // 刷新（原有的Refresh调用）
-    if (Chunk)
-    {
-        Chunk->Refresh();
-    }
-
-}HexMetrics::EHexEdgeType AHexCell::GetEdgeType(AHexCell* OtherCell)
+HexMetrics::EHexEdgeType AHexCell::GetEdgeType(AHexCell* OtherCell)
 {
     if (!OtherCell)
     {
@@ -86,84 +56,117 @@ AHexCell::AHexCell()
     }
     return HexMetrics::GetEdgeType(Elevation, OtherCell->Elevation);
 }
-//river
-void AHexCell::RemoveOutgoingRiver()
+
+void AHexCell::SetElevation(int32 NewElevation)
 {
-    if (!bHasOutgoingRiver)
-    {
-        return;
-    }
+    Elevation = NewElevation;
+    FVector Position = GetActorLocation();
+    Position.Z = NewElevation * HexMetrics::ElevationStep;
+    SetActorLocation(Position);
 
-    bHasOutgoingRiver = false;
-    RefreshSelfOnly();
-
-    AHexCell* Neighbor = GetNeighbor(OutgoingRiver);
-    if (Neighbor)
-    {
-        Neighbor->bHasIncomingRiver = false;
-        Neighbor->RefreshSelfOnly();
-    }
-
-}void AHexCell::RemoveIncomingRiver()
-{
-    if (!bHasIncomingRiver)
-    {
-        return;
-    }
-
-    bHasIncomingRiver = false;
-    RefreshSelfOnly();
-
-    AHexCell* Neighbor = GetNeighbor(IncomingRiver);
-    if (Neighbor)
-    {
-        Neighbor->bHasOutgoingRiver = false;
-        Neighbor->RefreshSelfOnly();
-    }
-
-}void AHexCell::RemoveRiver()
-{
-    RemoveOutgoingRiver();
-    RemoveIncomingRiver();
-}void AHexCell::SetOutgoingRiver(EHexDirection Direction)
-{
-    if (bHasOutgoingRiver && OutgoingRiver == Direction)
-    {
-        return;
-    }
-
-    AHexCell* Neighbor = GetNeighbor(Direction);
-    if (!Neighbor || Elevation < Neighbor->Elevation)
-    {
-        return; // 无邻居或上坡，退出
-    }
-
-    // 清理旧的河流
-    RemoveOutgoingRiver();
-    if (bHasIncomingRiver && IncomingRiver == Direction)
-    {
-        RemoveIncomingRiver(); // 如果流入方向和新流出方向重叠，移除流入
-    }
-
-    // 设置新流出河流
-    bHasOutgoingRiver = true;
-    OutgoingRiver = Direction;
-    UE_LOG(LogTemp, Log, TEXT("SetOutgoingRiver: Cell (%d, %d) -> Dir %d"), Coordinates.X, Coordinates.Z, static_cast<int32>(Direction));
-    RefreshSelfOnly();
-
-    // 设置邻居的流入河流
-    Neighbor->RemoveIncomingRiver();
-    Neighbor->bHasIncomingRiver = true;
-    Neighbor->IncomingRiver = HexMetrics::Opposite(Direction); // 对立方向
-    UE_LOG(LogTemp, Log, TEXT("SetIncomingRiver: Neighbor (%d, %d) -> Dir %d"), Neighbor->Coordinates.X, Neighbor->Coordinates.Z, static_cast<int32>(Neighbor->IncomingRiver));
-    Neighbor->RefreshSelfOnly();
-
-}void AHexCell::RefreshSelfOnly()
-{
+    // 道路不需要高度检查，直接刷新
     if (Chunk)
     {
         Chunk->Refresh();
     }
 }
 
+void AHexCell::RemoveOutgoingRoad()
+{
+    if (!bHasOutgoingRoad)
+    {
+        return;
+    }
 
+    bHasOutgoingRoad = false;
+    RefreshSelfOnly();
+
+    AHexCell* Neighbor = GetNeighbor(OutgoingRoad);
+    if (Neighbor)
+    {
+        Neighbor->bHasIncomingRoad = false;
+        Neighbor->RefreshSelfOnly();
+    }
+}
+
+void AHexCell::RemoveIncomingRoad()
+{
+    if (!bHasIncomingRoad)
+    {
+        return;
+    }
+
+    bHasIncomingRoad = false;
+    RefreshSelfOnly();
+
+    AHexCell* Neighbor = GetNeighbor(IncomingRoad);
+    if (Neighbor)
+    {
+        Neighbor->bHasOutgoingRoad = false;
+        Neighbor->RefreshSelfOnly();
+    }
+}
+
+void AHexCell::RemoveRoad()
+{
+    RemoveOutgoingRoad();
+    RemoveIncomingRoad();
+}
+
+void AHexCell::SetOutgoingRoad(EHexDirection Direction)
+{
+    if (bHasOutgoingRoad && OutgoingRoad == Direction)
+    {
+        return;
+    }
+
+    AHexCell* Neighbor = GetNeighbor(Direction);
+    if (!Neighbor)
+    {
+        return; // 无邻居，退出
+    }
+
+    // 清理旧的道路
+    RemoveOutgoingRoad();
+    if (bHasIncomingRoad && IncomingRoad == Direction)
+    {
+        RemoveIncomingRoad(); // 如果流入方向和新流出方向重叠，移除流入
+    }
+
+    // 设置新流出道路
+    bHasOutgoingRoad = true;
+    OutgoingRoad = Direction;
+    UE_LOG(LogTemp, Log, TEXT("SetOutgoingRoad: Cell (%d, %d) -> Dir %d"), Coordinates.X, Coordinates.Z, static_cast<int32>(Direction));
+    RefreshSelfOnly();
+
+    // 设置邻居的流入道路
+    Neighbor->RemoveIncomingRoad();
+    Neighbor->bHasIncomingRoad = true;
+    Neighbor->IncomingRoad = HexMetrics::Opposite(Direction);
+    UE_LOG(LogTemp, Log, TEXT("SetIncomingRoad: Neighbor (%d, %d) -> Dir %d"), Neighbor->Coordinates.X, Neighbor->Coordinates.Z, static_cast<int32>(Neighbor->IncomingRoad));
+    Neighbor->RefreshSelfOnly();
+}
+
+bool AHexCell::HasRoad() const
+{
+    bool Result = bHasIncomingRoad || bHasOutgoingRoad;
+    UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d) HasRoad: %d"), Coordinates.X, Coordinates.Z, Result);
+    return Result;
+}
+
+bool AHexCell::HasRoadThroughEdge(EHexDirection Direction) const
+{
+    bool Result = (bHasIncomingRoad && IncomingRoad == Direction) ||
+        (bHasOutgoingRoad && OutgoingRoad == Direction);
+    UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d) HasRoadThroughEdge in direction %d: %d"),
+        Coordinates.X, Coordinates.Z, static_cast<int32>(Direction), Result);
+    return Result;
+}
+
+void AHexCell::RefreshSelfOnly()
+{
+    if (Chunk)
+    {
+        Chunk->Refresh();
+    }
+}

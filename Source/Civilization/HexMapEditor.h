@@ -10,25 +10,24 @@ enum class EEditMode : uint8
 {
     Color,
     Elevation,
-    River
+    Road // 改成 Road
 };
 
 UENUM(BlueprintType)
-enum class EEditRiverMode : uint8
+enum class EEditRoadMode : uint8 // 改成 EEditRoadMode
 {
-    Ignore,
+    No,
     Yes,
-    No
+    Ignore
 };
 
-UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
+UCLASS(Blueprintable, ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class CIVILIZATION_API UHexMapEditor : public UActorComponent
 {
     GENERATED_BODY()
 
 public:
     UHexMapEditor();
-
     virtual void BeginPlay() override;
     virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
@@ -44,49 +43,20 @@ public:
     UFUNCTION(BlueprintCallable, Category = "HexMapEditor")
     void SelectColor(int32 Index);
 
-    UFUNCTION(BlueprintCallable, Category = "HexMapEditor")
-    void SetRiverMode(int32 Mode) { RiverMode = static_cast<EEditRiverMode>(Mode); }
-
-    // 输入绑定
-    UFUNCTION()
-    void MoveCameraForward(float AxisValue);
-
-    UFUNCTION()
-    void MoveCameraRight(float AxisValue);
-
-    UFUNCTION()
-    void AdjustCameraZoom(float AxisValue);
-
-    UFUNCTION()
-    void RotateCamera(float AxisValue);
-
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexMapEditor")
     AHexGrid* HexGrid;
 
-    UFUNCTION(BlueprintCallable, Category = "HexMapEditor")
-    TArray<FString> GetEditModeOptions();
-
-    UFUNCTION(BlueprintCallable, Category = "HexMapEditor")
-    TArray<FString> GetRiverModeOptions();
-
-protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexMapEditor")
     TArray<FLinearColor> Colors;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexMapEditor")
-    FLinearColor ActiveColor;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexMapEditor")
-    int32 ActiveElevation = 0;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexMapEditor")
     EEditMode EditMode = EEditMode::Color;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexMapEditor")
-    int32 BrushSize = 1;
+    EEditRoadMode RoadMode = EEditRoadMode::No; // 改成 RoadMode
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexMapEditor")
-    float MoveSpeed = 50.0f;
+    float MoveSpeed = 100.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexMapEditor")
     float SwivelMinZoom = 10.0f;
@@ -94,26 +64,39 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexMapEditor")
     float SwivelMaxZoom = 80.0f;
 
-    UPROPERTY()
-    class UUserWidget* HexMapEditorUI;
+    UFUNCTION(BlueprintCallable, Category = "HexMapEditor")
+    TArray<FString> GetEditModeOptions();
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexMapEditor|River")
-    EEditRiverMode RiverMode = EEditRiverMode::Ignore;
+    UFUNCTION(BlueprintCallable, Category = "HexMapEditor")
+    TArray<FString> GetRoadModeOptions(); // 改成 GetRoadModeOptions
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HexMapEditor|River")
+protected:
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HexMapEditor")
+    int32 BrushSize = 0;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HexMapEditor")
+    int32 ActiveElevation = 0;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HexMapEditor")
+    FLinearColor ActiveColor;
+
+    UPROPERTY(Transient)
+    AHexCell* PreviousCell;
+
+    UPROPERTY(Transient)
     bool bIsDragging = false;
+    bool bHasSetRoad = false;
+    UPROPERTY(Transient)
+    EHexDirection DragDirection;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HexMapEditor|River")
-    EHexDirection DragDirection = EHexDirection::NE;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexMapEditor")
-    AHexCell* PreviousCell = nullptr;
-
-private:
     void HandleInput();
+    void ValidateDrag(AHexCell* CurrentCell);
     void EditCells(AHexCell* Center);
     void EditCell(AHexCell* Cell);
-    void ValidateDrag(AHexCell* CurrentCell);
-    void MoveCamera(float AxisValue, bool bIsForward);
-};
 
+    void MoveCameraForward(float AxisValue);
+    void MoveCameraRight(float AxisValue);
+    void MoveCamera(float AxisValue, bool bIsForward);
+    void AdjustCameraZoom(float Value);
+    void RotateCamera(float AxisValue);
+};
