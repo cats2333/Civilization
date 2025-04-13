@@ -10,11 +10,11 @@ enum class EEditMode : uint8
 {
     Color,
     Elevation,
-    Road // 改成 Road
+    Road
 };
 
 UENUM(BlueprintType)
-enum class EEditRoadMode : uint8 // 改成 EEditRoadMode
+enum class EEditRoadMode : uint8 
 {
     No,
     Yes,
@@ -53,7 +53,7 @@ public:
     EEditMode EditMode = EEditMode::Color;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexMapEditor")
-    EEditRoadMode RoadMode = EEditRoadMode::No; // 改成 RoadMode
+    EEditRoadMode RoadMode = EEditRoadMode::No;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexMapEditor")
     float MoveSpeed = 100.0f;
@@ -68,7 +68,7 @@ public:
     TArray<FString> GetEditModeOptions();
 
     UFUNCTION(BlueprintCallable, Category = "HexMapEditor")
-    TArray<FString> GetRoadModeOptions(); // 改成 GetRoadModeOptions
+    TArray<FString> GetRoadModeOptions();
 
 protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HexMapEditor")
@@ -83,16 +83,14 @@ protected:
     UPROPERTY(Transient)
     AHexCell* PreviousCell;
 
-    UPROPERTY(Transient)
-    bool bIsDragging = false;
-    bool bHasSetRoad = false;
-    UPROPERTY(Transient)
-    EHexDirection DragDirection;
+    UPROPERTY()
+    bool bIsFirstClick;
 
     void HandleInput();
-    void ValidateDrag(AHexCell* CurrentCell);
     void EditCells(AHexCell* Center);
     void EditCell(AHexCell* Cell);
+
+    void ClearHighlight();
 
     void MoveCameraForward(float AxisValue);
     void MoveCameraRight(float AxisValue);

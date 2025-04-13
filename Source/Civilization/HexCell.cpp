@@ -15,6 +15,24 @@ AHexCell::AHexCell()
     Color = FLinearColor::White;
 }
 
+void AHexCell::SetHighlight(bool bHighlight)
+{
+    if (bIsHighlighted == bHighlight)
+    {
+        return;
+    }
+
+    bIsHighlighted = bHighlight;
+    UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d): Highlight %s"),
+        Coordinates.X, Coordinates.Z, bHighlight ? TEXT("ON") : TEXT("OFF"));
+
+    if (Chunk)
+    {
+        Chunk->SetCellHighlight(this, bHighlight);
+        Chunk->Refresh();
+    }
+}
+
 void AHexCell::SetupCell(int32 X, int32 Z, const FVector& Position)
 {
     SetActorLocation(Position);

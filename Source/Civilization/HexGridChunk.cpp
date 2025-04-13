@@ -78,6 +78,16 @@ void AHexGridChunk::TriangulateCells()
         FVector Center = Cell->GetPosition();
         FColor SRGBColor = Cell->Color.ToFColor(true);
 
+        UMaterialInstanceDynamic** DynMaterialPtr = CellMaterials.Find(Cell);
+        if (DynMaterialPtr && *DynMaterialPtr)
+        {
+            HexMeshComponent->SetMaterial(0, *DynMaterialPtr);
+        }
+        else
+        {
+            HexMeshComponent->SetMaterial(0, DefaultMaterial);
+        }
+
         bool bHasRoad = Cell->HasRoad();
 
         if (bHasRoad) {
@@ -88,6 +98,11 @@ void AHexGridChunk::TriangulateCells()
         {
             EHexDirection Direction = static_cast<EHexDirection>(i);
             bool bHasRoadThroughEdge = Cell->HasRoadThroughEdge(Direction);
+            if (bHasRoadThroughEdge)
+            {
+                UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d) HasRoadThroughEdge in direction %d: %d"),
+                    Cell->Coordinates.X, Cell->Coordinates.Z, static_cast<int32>(Direction), bHasRoadThroughEdge);
+            }
             UE_LOG(LogTemp, Log, TEXT("Checking direction %d for cell (%d, %d): HasRoadThroughEdge=%d"),
                 static_cast<int32>(Direction), Cell->Coordinates.X, Cell->Coordinates.Z, bHasRoadThroughEdge);
 
@@ -486,6 +501,36 @@ void AHexGridChunk::CreateRoadDecal(FVector Start, FVector End, float Width, UMa
     Decal->SetFadeScreenSize(0.0f);
 
     RoadDecals.Add(Decal);
+}
+
+void AHexGridChunk::SetCellHighlight(AHexCell* Cell, bool bHighlight)
+{
+    if (!Cell)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("SetCellHighlight: Cell is null"));
+        return;
+    }
+
+    if (bHighlight)
+    {
+        if (HighlightMaterial)
+        {
+            UMaterialInstanceDynamic* DynMaterial = UMaterialInstanceDynamic::Create(HighlightMaterial, this);
+            if (DynMaterial)
+            {
+                DynMaterial->SetVectorParameterValue(FName("EmissiveColor"), FLinearColor(1, 1, 0)); // Ä¬ÈÏ»ÆÉ«
+                CellMaterials.Add(Cell, DynMaterial);
+                UE_LOG(LogTemp, Log, TEXT("Applied M_Highlight to cell (%d, %d)"),
+                    Cell->Coordinates.X, Cell->Coordinates.Z);
+            }
+        }
+    }
+    else
+    {
+        CellMaterials.Remove(Cell);
+        UE_LOG(LogTemp, Log, TEXT("Removed M_Highlight from cell (%d, %d)"),
+            Cell->Coordinates.X, Cell->Coordinates.Z);
+    }
 }
 
 //void AHexGridChunk::CreateRoadDecal(FVector Start, FVector End, float Width, UMaterialInterface* DecalMaterial)

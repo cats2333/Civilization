@@ -77,29 +77,23 @@ void UHexMapEditor::BeginPlay()
     SelectColor(0);
 
 }
+
 void UHexMapEditor::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
     APlayerController* PC = GetWorld()->GetFirstPlayerController();
-    if (PC && PC->IsInputKeyDown(EKeys::LeftMouseButton))
+    if (PC && PC->WasInputKeyJustPressed(EKeys::LeftMouseButton))
     {
+        UE_LOG(LogTemp, Log, TEXT("Left mouse clicked, bIsFirstClick=%s"), bIsFirstClick ? TEXT("true") : TEXT("false"));
         HandleInput();
     }
-    else
-    {
-        if (bIsDragging)
-        {
-            bIsDragging = false;
-            bHasSetRoad = false;
-            UE_LOG(LogTemp, Log, TEXT("Mouse released, drag ended, bHasSetRoad reset to false"));
-        }
-        PreviousCell = nullptr;
-    }
 }
+
 void UHexMapEditor::ShowEditorUI(bool bVisible)
 {
-}void UHexMapEditor::HandleInput()
+}
+void UHexMapEditor::HandleInput()
 {
     if (!HexGrid)
     {
@@ -119,42 +113,9 @@ void UHexMapEditor::ShowEditorUI(bool bVisible)
         AHexCell* CurrentCell = HexGrid->GetCellByPosition(HitResult.Location);
         if (CurrentCell)
         {
-            if (PreviousCell && PreviousCell != CurrentCell)
-            {
-                ValidateDrag(CurrentCell);
-            }
-            else
-            {
-                bIsDragging = false;
-            }
             EditCells(CurrentCell);
-            PreviousCell = CurrentCell;
         }
     }
-    else
-    {
-        PreviousCell = nullptr;
-    }
-
-}
-void UHexMapEditor::ValidateDrag(AHexCell* CurrentCell) {
-    if (!PreviousCell || !CurrentCell || PreviousCell == CurrentCell) {
-        bIsDragging = false;
-        return;
-    }
-    for (int32 i = 0; i < 6; i++) {
-        EHexDirection Dir = static_cast<EHexDirection>(i);
-        if (PreviousCell->GetNeighbor(Dir) == CurrentCell) {
-            bIsDragging = true;
-            DragDirection = Dir;
-            UE_LOG(LogTemp, Log, TEXT("Drag from (%d, %d) to (%d, %d), Direction: %d"),
-                PreviousCell->Coordinates.X, PreviousCell->Coordinates.Z,
-                CurrentCell->Coordinates.X, CurrentCell->Coordinates.Z,
-                static_cast<int32>(Dir));
-            return;
-        }
-    }
-    bIsDragging = false;
 }
 
 void UHexMapEditor::EditCells(AHexCell* Center)
@@ -187,7 +148,16 @@ void UHexMapEditor::EditCells(AHexCell* Center)
 }
 void UHexMapEditor::EditCell(AHexCell* Cell)
 {
-    if (!Cell) return;
+    if (!Cell)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("EditCell: Cell is null!"));
+        return;
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("EditCell: Processing cell (%d, %d), Mode=%s, RoadMode=%s"),
+        Cell->Coordinates.X, Cell->Coordinates.Z,
+        *UEnum::GetValueAsString(EditMode),
+        *UEnum::GetValueAsString(RoadMode));
 
     switch (EditMode)
     {
@@ -202,38 +172,99 @@ void UHexMapEditor::EditCell(AHexCell* Cell)
         {
         case EEditRoadMode::No:
             Cell->RemoveRoad();
-            //if (Cell->Chunk)
-            //{
-            //    Cell->Chunk->ClearRoadDecals(); // 清理贴花
-            //    Cell->Chunk->Refresh(); // 只刷新网格
-            //}
+            if (Cell->Chunk)
+            {
+                Cell->Chunk->ClearRoadDecals();
+            }
             break;
         case EEditRoadMode::Yes:
-            if (bIsDragging && PreviousCell && PreviousCell != Cell && !bHasSetRoad)
-                //if ( PreviousCell && PreviousCell != Cell)
+            UE_LOG(LogTemp, Log, TEXT("Road mode: bIsFirstClick=%s, PreviousCell=%s"),
+                bIsFirstClick ? TEXT("true") : TEXT("false"),
+                PreviousCell ? *GetNameSafe(PreviousCell) : TEXT("nullptr"));
+            if (bIsFirstClick)
             {
-                PreviousCell->SetOutgoingRoad(DragDirection);
-                bHasSetRoad = true;
-                UE_LOG(LogTemp, Log, TEXT("Road from (%d, %d) to (%d, %d), Direction: %d"),
-                    PreviousCell->Coordinates.X, PreviousCell->Coordinates.Z,
-                    Cell->Coordinates.X, Cell->Coordinates.Z,
-                    static_cast<int32>(DragDirection));
-
-               
-                // 直接生成贴花，不调用 TriangulateCells
-                if (PreviousCell->Chunk)
+                if (PreviousCell)
                 {
-                    FVector Start = PreviousCell->GetPosition();
-                    FVector End = Cell->GetPosition();
-                    PreviousCell->Chunk->CreateRoadDecal(Start, End, 0.5f, PreviousCell->Chunk->RoadDecalMaterial);
+                    PreviousCell->SetHighlight(false);
                 }
+                PreviousCell = Cell;
+                bIsFirstClick = false;
+                Cell->SetHighlight(true);
+                UE_LOG(LogTemp, Log, TEXT("First click on cell (%d, %d), waiting for second click"),
+                    Cell->Coordinates.X, Cell->Coordinates.Z);
+            }
+            else
+            {
+                if (PreviousCell)
+                {
+                    PreviousCell->SetHighlight(false);
+                }
+
+                bool bIsNeighbor = false;
+                EHexDirection NeighborDirection = EHexDirection::E;
+                if (PreviousCell)
+                {
+                    UE_LOG(LogTemp, Log, TEXT("Second click, checking neighbors"));
+                    for (int32 i = 0; i < 6; i++)
+                    {
+                        EHexDirection Dir = static_cast<EHexDirection>(i);
+                        AHexCell* Neighbor = PreviousCell->GetNeighbor(Dir);
+                        if (Neighbor == Cell)
+                        {
+                            bIsNeighbor = true;
+                            NeighborDirection = Dir;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    UE_LOG(LogTemp, Warning, TEXT("PreviousCell is null on second click!"));
+                }
+
+                if (bIsNeighbor)
+                {
+                    PreviousCell->SetOutgoingRoad(NeighborDirection);
+                    if (PreviousCell->Chunk)
+                    {
+                        FVector Start = PreviousCell->GetPosition();
+                        FVector End = Cell->GetPosition();
+                        PreviousCell->Chunk->CreateRoadDecal(Start, End, 0.5f, PreviousCell->Chunk->RoadDecalMaterial);
+                        UE_LOG(LogTemp, Log, TEXT("Road created from (%d, %d) to (%d, %d), Direction: %d"),
+                            PreviousCell->Coordinates.X, PreviousCell->Coordinates.Z,
+                            Cell->Coordinates.X, Cell->Coordinates.Z, static_cast<int32>(NeighborDirection));
+                    }
+                }
+                else
+                {
+                    UE_LOG(LogTemp, Warning, TEXT("Second click on (%d, %d) is not a neighbor of (%d, %d), no road created"),
+                        Cell->Coordinates.X, Cell->Coordinates.Z,
+                        PreviousCell ? PreviousCell->Coordinates.X : -1,
+                        PreviousCell ? PreviousCell->Coordinates.Z : -1);
+                }
+
+                PreviousCell = Cell;
+                bIsFirstClick = true;
+                Cell->SetHighlight(true);
             }
             break;
         case EEditRoadMode::Ignore:
         default:
+            ClearHighlight();
             break;
         }
         break;
+    }
+}
+
+void UHexMapEditor::ClearHighlight()
+{
+    if (PreviousCell)
+    {
+        PreviousCell->SetHighlight(false);
+        PreviousCell = nullptr;
+        bIsFirstClick = true;
+        UE_LOG(LogTemp, Log, TEXT("Cleared highlight and reset state"));
     }
 }
 
