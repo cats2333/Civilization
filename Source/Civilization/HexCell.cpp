@@ -2,6 +2,10 @@
 #include "HexMetrics.h"
 #include "HexDirection.h"
 
+#define LOG_TO_FILE(Category, Verbosity, Format, ...) \
+    UE_LOG(Category, Verbosity, Format, ##__VA_ARGS__); \
+    GLog->Logf(ELogVerbosity::Verbosity, TEXT("%s"), *FString::Printf(Format, ##__VA_ARGS__));
+
 AHexCell::AHexCell()
 {
     PrimaryActorTick.bCanEverTick = false;
@@ -16,23 +20,6 @@ AHexCell::AHexCell()
     bHasIncomingRoad = false;
     bIsHighlighted = false;
     Elevation = 0;
-}
-
-void AHexCell::SetHighlight(bool bHighlight)
-{
-    if (bIsHighlighted == bHighlight)
-    {
-        return;
-    }
-
-    bIsHighlighted = bHighlight;
-    UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d): Highlight %s"),
-        Coordinates.X, Coordinates.Z, bHighlight ? TEXT("ON") : TEXT("OFF"));
-
-    if (Chunk)
-    {
-        Chunk->SetCellHighlight(this, bHighlight);
-    }
 }
 
 void AHexCell::SetupCell(int32 X, int32 Z, const FVector& Position)

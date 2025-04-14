@@ -4,6 +4,10 @@
 #include "Components/DecalComponent.h"
 #include "ProceduralMeshComponent.h"
 
+#define LOG_TO_FILE(Category, Verbosity, Format, ...) \
+    UE_LOG(Category, Verbosity, Format, ##__VA_ARGS__); \
+    GLog->Logf(ELogVerbosity::Verbosity, TEXT("%s"), *FString::Printf(Format, ##__VA_ARGS__));
+
 AHexGridChunk::AHexGridChunk()
 {
     PrimaryActorTick.bCanEverTick = true;
@@ -19,16 +23,6 @@ AHexGridChunk::AHexGridChunk()
     {
         DefaultMaterial = DefaultMaterialFinder.Object;
         HexMeshComponent->SetMaterial(0, DefaultMaterial);
-    }
-
-    static ConstructorHelpers::FObjectFinder<UMaterialInterface> HighlightMaterialFinder(TEXT("/Game/Materials/M_Highlight.M_Highlight"));
-    if (HighlightMaterialFinder.Succeeded())
-    {
-        HighlightMaterial = HighlightMaterialFinder.Object;
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("Failed to load M_Highlight material! Check path: /Game/Materials/M_Highlight"));
     }
 
     RoadDecalMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Materials/M_RoadDecal"));
@@ -65,50 +59,10 @@ void AHexGridChunk::Refresh()
     UE_LOG(LogTemp, Log, TEXT("AHexGridChunk::Refresh called, triangulating cells"));
 }
 
-void AHexGridChunk::SetCellHighlight(AHexCell* Cell, bool bHighlight)
-{
-    if (!Cell)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("SetCellHighlight: Cell is null"));
-        return;
-    }
-
-    if (bHighlight)
-    {
-        if (HighlightMaterial)
-        {
-            UMaterialInstanceDynamic* DynMaterial = UMaterialInstanceDynamic::Create(HighlightMaterial, this);
-            if (DynMaterial)
-            {
-                DynMaterial->SetVectorParameterValue(FName("EmissiveColor"), FLinearColor(20, 20, 0));
-                DynMaterial->SetScalarParameterValue(FName("Opacity"), 0.8f);
-                CellMaterials.Add(Cell, DynMaterial);
-                UE_LOG(LogTemp, Log, TEXT("Applied M_Highlight to cell (%d, %d)"),
-                    Cell->Coordinates.X, Cell->Coordinates.Z);
-            }
-            else
-            {
-                UE_LOG(LogTemp, Error, TEXT("Failed to create dynamic material for cell (%d, %d)"),
-                    Cell->Coordinates.X, Cell->Coordinates.Z);
-            }
-        }
-        else
-        {
-            UE_LOG(LogTemp, Error, TEXT("HighlightMaterial is null for cell (%d, %d)"),
-                Cell->Coordinates.X, Cell->Coordinates.Z);
-        }
-    }
-    else
-    {
-        CellMaterials.Remove(Cell);
-    }
-    Refresh();
-}
-
 void AHexGridChunk::TriangulateCells()
 {
     ClearMeshData();
-    CellMaterials.Empty();
+    //CellMaterials.Empty();
 
     for (AHexCell* Cell : Cells)
     {
@@ -135,7 +89,7 @@ void AHexGridChunk::TriangulateCells()
 
     ApplyMesh();
 
-    for (AHexCell* Cell : Cells)
+    /*for (AHexCell* Cell : Cells)
     {
         if (!Cell) continue;
         UMaterialInstanceDynamic* DynMaterial = CellMaterials.FindRef(Cell);
@@ -149,7 +103,7 @@ void AHexGridChunk::TriangulateCells()
             DefaultDynMaterial->SetVectorParameterValue(FName("BaseColor"), Cell->Color);
             HexMeshComponent->SetMaterial(0, DefaultDynMaterial);
         }
-    }
+    }*/
 }
 
 void AHexGridChunk::AddTriangle(FVector V1, FVector V2, FVector V3)
@@ -500,31 +454,13 @@ void AHexGridChunk::ClearRoadDecals()
     RoadDecals.Empty();
 }
 
-//void AHexGridChunk::CreateRoadDecal(FVector Start, FVector End, float HalfWidth, UMaterialInterface* DecalMaterial)
-//{
-//    if (!DecalMaterial)
-//    {
-//        UE_LOG(LogTemp, Warning, TEXT("CreateRoadDecal: DecalMaterial is null"));
-//        return;
-//    }
-//
-//    FVector Midpoint = (Start + End) * 0.5f;
-//    float Length = (End - Start).Size();
-//    UDecalComponent* Decal = NewObject<UDecalComponent>(this);
-//    Decal->SetDecalMaterial(DecalMaterial);
-//    Decal->DecalSize = FVector(Length * 0.5f, HalfWidth, HalfWidth);
-//    Decal->SetRelativeLocation(FVector(Midpoint.X, Midpoint.Y, 0.1f)); // Ì§¸ß
-//    Decal->SetRelativeRotation(FRotator(90.f, 0.f, FMath::RadiansToDegrees(FMath::Atan2(End.Y - Start.Y, End.X - Start.X))));
-//    Decal->RegisterComponent();
-//
-//    UE_LOG(LogTemp, Log, TEXT("Created road decal from (%f, %f) to (%f, %f), Size=(%f, %f, %f), Visibility=%s"),
-//        Start.X, Start.Y, End.X, End.Y,
-//        Decal->DecalSize.X, Decal->DecalSize.Y, Decal->DecalSize.Z,
-//        Decal->IsVisible() ? TEXT("Visible") : TEXT("Hidden"));
-//}
 void AHexGridChunk::CreateRoadDecal(FVector Start, FVector End, float Width, UMaterialInterface* DecalMaterial)
 {
-    if (!DecalMaterial) return;
+    if (!DecalMaterial)
+    {
+        LOG_TO_FILE(LogTemp, Warning, TEXT("CreateRoadDecal: DecalMaterial is null"));
+        return;
+    }
 
     FVector DecalLocation = (Start + End) * 0.5f;
     FVector Direction = (End - Start).GetSafeNormal();
@@ -550,5 +486,10 @@ void AHexGridChunk::CreateRoadDecal(FVector Start, FVector End, float Width, UMa
 
     RoadDecals.Add(Decal);
 
+    LOG_TO_FILE(LogTemp, Log, TEXT("Created road decal from (%f, %f) to (%f, %f), Size=(%f, %f, %f), Visibility=%s, Material=%s"),
+        Start.X, Start.Y, End.X, End.Y,
+        Decal->DecalSize.X, Decal->DecalSize.Y, Decal->DecalSize.Z,
+        Decal->IsVisible() ? TEXT("Visible") : TEXT("Hidden"),
+        *GetNameSafe(DecalMaterial));
 }
 

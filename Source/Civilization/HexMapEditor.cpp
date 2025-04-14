@@ -12,10 +12,10 @@ UHexMapEditor::UHexMapEditor()
     PrimaryComponentTick.bCanEverTick = true;
     bIsFirstClick = true;
     PreviousCell = nullptr;
-    BrushSize = 2;
+    BrushSize = 1;
     ActiveElevation = 0;
-    MoveSpeed = 50.0f;
-    SwivelMinZoom = 5.0f;
+    MoveSpeed = 10.0f;
+    SwivelMinZoom = 0.5f;
     SwivelMaxZoom = 80.0f;
 }
 
@@ -86,7 +86,6 @@ void UHexMapEditor::BeginPlay()
     }
 
     SelectColor(0);
-    SetBrushSize(2);
 }
 
 void UHexMapEditor::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -154,7 +153,7 @@ void UHexMapEditor::EditCells(AHexCell* Center)
 {
     if (!Center || !HexGrid)
     {
-        UE_LOG(LogTemp, Warning, TEXT("EditCells: Center=%s, HexGrid=%s"),
+        LOG_TO_FILE(LogTemp, Warning, TEXT("EditCells: Center=%s, HexGrid=%s"),
             Center ? *GetNameSafe(Center) : TEXT("nullptr"),
             HexGrid ? *GetNameSafe(HexGrid) : TEXT("nullptr"));
         return;
@@ -162,14 +161,14 @@ void UHexMapEditor::EditCells(AHexCell* Center)
 
     if (!Center->Chunk)
     {
-        UE_LOG(LogTemp, Warning, TEXT("EditCells: Center cell has no Chunk assigned!"));
+        LOG_TO_FILE(LogTemp, Warning, TEXT("EditCells: Center cell has no Chunk assigned!"));
         return;
     }
 
-    UE_LOG(LogTemp, Log, TEXT("EditCells: Center at (%d, %d), BrushSize=%d"),
+    LOG_TO_FILE(LogTemp, Log, TEXT("EditCells: Center at (%d, %d), BrushSize=%d"),
         Center->Coordinates.X, Center->Coordinates.Z, BrushSize);
 
-    if (BrushSize <= 1 || EditMode == EEditMode::Road)
+    if (EditMode == EEditMode::Road || EditMode == EEditMode::Elevation || BrushSize <= 1)
     {
         EditCell(Center);
     }
@@ -254,7 +253,6 @@ void UHexMapEditor::EditCell(AHexCell* Cell)
             {
                 Cell->Chunk->ClearRoadDecals();
             }
-            ClearHighlight();
             break;
         case EEditRoadMode::Yes:
             UE_LOG(LogTemp, Log, TEXT("Road mode: bIsFirstClick=%s, PreviousCell=%s"),
@@ -264,13 +262,11 @@ void UHexMapEditor::EditCell(AHexCell* Cell)
             {
                 if (PreviousCell && PreviousCell != Cell)
                 {
-                    PreviousCell->SetHighlight(false);
                     UE_LOG(LogTemp, Log, TEXT("Clearing previous highlight for cell (%d, %d)"),
                         PreviousCell->Coordinates.X, PreviousCell->Coordinates.Z);
                 }
                 PreviousCell = Cell;
                 bIsFirstClick = false;
-                Cell->SetHighlight(true);
                 UE_LOG(LogTemp, Log, TEXT("First click on cell (%d, %d), waiting for second click"),
                     Cell->Coordinates.X, Cell->Coordinates.Z);
             }
@@ -281,7 +277,6 @@ void UHexMapEditor::EditCell(AHexCell* Cell)
                     UE_LOG(LogTemp, Warning, TEXT("PreviousCell is null on second click, resetting"));
                     PreviousCell = Cell;
                     bIsFirstClick = false;
-                    Cell->SetHighlight(true);
                     UE_LOG(LogTemp, Log, TEXT("Reset to first click on cell (%d, %d)"),
                         Cell->Coordinates.X, Cell->Coordinates.Z);
                     break;
@@ -290,7 +285,6 @@ void UHexMapEditor::EditCell(AHexCell* Cell)
                 if (PreviousCell == Cell)
                 {
                     UE_LOG(LogTemp, Log, TEXT("Same cell clicked again, clearing highlight"));
-                    Cell->SetHighlight(false);
                     PreviousCell = nullptr;
                     bIsFirstClick = true;
                     break;
@@ -310,7 +304,6 @@ void UHexMapEditor::EditCell(AHexCell* Cell)
                     }
                 }
 
-                PreviousCell->SetHighlight(false);
                 UE_LOG(LogTemp, Log, TEXT("Clearing previous highlight for cell (%d, %d)"),
                     PreviousCell->Coordinates.X, PreviousCell->Coordinates.Z);
 
@@ -336,39 +329,13 @@ void UHexMapEditor::EditCell(AHexCell* Cell)
 
                 PreviousCell = Cell;
                 bIsFirstClick = false;
-                Cell->SetHighlight(true);
-                UE_LOG(LogTemp, Log, TEXT("Second click, set highlight for cell (%d, %d)"),
-                    Cell->Coordinates.X, Cell->Coordinates.Z);
             }
             break;
         case EEditRoadMode::Ignore:
         default:
-            ClearHighlight();
             break;
         }
         break;
-    }
-}
-
-void UHexMapEditor::ClearHighlight()
-{
-    if (PreviousCell)
-    {
-        PreviousCell->SetHighlight(false);
-        UE_LOG(LogTemp, Log, TEXT("Cleared highlight for cell (%d, %d)"),
-            PreviousCell->Coordinates.X, PreviousCell->Coordinates.Z);
-        PreviousCell = nullptr;
-        bIsFirstClick = true;
-    }
-    if (HexGrid)
-    {
-        for (AHexCell* Cell : HexGrid->GetCells())
-        {
-            if (Cell && Cell->bIsHighlighted)
-            {
-                Cell->SetHighlight(false);
-            }
-        }
     }
 }
 
@@ -379,21 +346,18 @@ void UHexMapEditor::SelectColor(int32 Index)
         ActiveColor = Colors[Index];
         UE_LOG(LogTemp, Log, TEXT("Selected color index: %d, Color: %s"), Index, *ActiveColor.ToString());
     }
-    ClearHighlight();
 }
 
 void UHexMapEditor::SetBrushSize(float Size)
 {
     BrushSize = FMath::RoundToInt(Size);
     UE_LOG(LogTemp, Log, TEXT("Set BrushSize to %d"), BrushSize);
-    ClearHighlight();
 }
 
 void UHexMapEditor::SetElevation(float Elevation)
 {
     ActiveElevation = FMath::RoundToInt(Elevation);
     UE_LOG(LogTemp, Log, TEXT("Set ActiveElevation to %d"), ActiveElevation);
-    ClearHighlight();
 }
 
 TArray<FString> UHexMapEditor::GetEditModeOptions()

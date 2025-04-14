@@ -27,8 +27,6 @@ public:
     // 贴花相关函数
     void ClearRoadDecals();
     void CreateRoadDecal(FVector Start, FVector End, float Width, UMaterialInterface* DecalMaterial);
-    UFUNCTION()
-    void SetCellHighlight(AHexCell* Cell, bool bHighlight);
 
     UMaterialInterface* RoadDecalMaterial;
 protected:
@@ -74,9 +72,6 @@ protected:
 
     UPROPERTY()
     UMaterialInterface* HighlightMaterial;
-
-    UPROPERTY()
-    TMap<AHexCell*, UMaterialInstanceDynamic*> CellMaterials;
 
     void ClearMeshData();
     void ApplyMesh();

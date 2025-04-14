@@ -90,8 +90,6 @@ protected:
     void EditCells(AHexCell* Center);
     void EditCell(AHexCell* Cell);
 
-    void ClearHighlight();
-
     void MoveCameraForward(float AxisValue);
     void MoveCameraRight(float AxisValue);
     void MoveCamera(float AxisValue, bool bIsForward);

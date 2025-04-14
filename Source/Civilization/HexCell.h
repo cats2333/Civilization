@@ -6,7 +6,7 @@
 #include "HexCoordinates.h"
 #include "HexDirection.h" 
 #include "HexMetrics.h"
-#include "HexGridChunk.h" //
+#include "HexGridChunk.h" 
 #include "HexCell.generated.h"
 
 enum class EHexDirection : uint8;
@@ -89,9 +89,6 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Hex Cell")
     void RefreshSelfOnly();
-
-    UFUNCTION()
-    void SetHighlight(bool bHighlight);
 
     UFUNCTION(BlueprintCallable, Category = "HexCell")
     bool IsHighlighted() const { return bIsHighlighted; }
