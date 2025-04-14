@@ -2,17 +2,24 @@
 #include "HexMetrics.h"
 #include "HexDirection.h"
 
+#define LOG_TO_FILE(Category, Verbosity, Format, ...) \
+    UE_LOG(Category, Verbosity, Format, ##__VA_ARGS__); \
+    GLog->Logf(ELogVerbosity::Verbosity, TEXT("%s"), *FString::Printf(Format, ##__VA_ARGS__));
+
 AHexCell::AHexCell()
 {
     PrimaryActorTick.bCanEverTick = false;
 
-    // 初始化 Neighbors 数组，六个方向
     Neighbors.Init(nullptr, 6);
 
     SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
     RootComponent = SceneRoot;
 
     Color = FLinearColor::White;
+    bHasOutgoingRoad = false;
+    bHasIncomingRoad = false;
+    bIsHighlighted = false;
+    Elevation = 0;
 }
 
 void AHexCell::SetupCell(int32 X, int32 Z, const FVector& Position)
@@ -64,7 +71,6 @@ void AHexCell::SetElevation(int32 NewElevation)
     Position.Z = NewElevation * HexMetrics::ElevationStep;
     SetActorLocation(Position);
 
-    // 道路不需要高度检查，直接刷新
     if (Chunk)
     {
         Chunk->Refresh();
@@ -123,34 +129,55 @@ void AHexCell::SetOutgoingRoad(EHexDirection Direction)
     AHexCell* Neighbor = GetNeighbor(Direction);
     if (!Neighbor)
     {
-        return; // 无邻居，退出
+        return;
     }
 
-    // 清理旧的道路
     RemoveOutgoingRoad();
     if (bHasIncomingRoad && IncomingRoad == Direction)
     {
-        RemoveIncomingRoad(); // 如果流入方向和新流出方向重叠，移除流入
+        RemoveIncomingRoad();
     }
 
-    // 设置新流出道路
     bHasOutgoingRoad = true;
     OutgoingRoad = Direction;
     UE_LOG(LogTemp, Log, TEXT("SetOutgoingRoad: Cell (%d, %d) -> Dir %d"), Coordinates.X, Coordinates.Z, static_cast<int32>(Direction));
     RefreshSelfOnly();
 
-    // 设置邻居的流入道路
     Neighbor->RemoveIncomingRoad();
     Neighbor->bHasIncomingRoad = true;
     Neighbor->IncomingRoad = HexMetrics::Opposite(Direction);
-    UE_LOG(LogTemp, Log, TEXT("SetIncomingRoad: Neighbor (%d, %d) -> Dir %d"), Neighbor->Coordinates.X, Neighbor->Coordinates.Z, static_cast<int32>(Neighbor->IncomingRoad));
+    UE_LOG(LogTemp, Log, TEXT("SetIncomingRoad: Neighbor (%d, %d) <- Dir %d"), Neighbor->Coordinates.X, Neighbor->Coordinates.Z, static_cast<int32>(Neighbor->IncomingRoad));
     Neighbor->RefreshSelfOnly();
+}
+
+void AHexCell::SetIncomingRoad(EHexDirection Direction)
+{
+    if (bHasIncomingRoad && IncomingRoad == Direction)
+    {
+        return;
+    }
+
+    AHexCell* Neighbor = GetNeighbor(Direction);
+    if (!Neighbor)
+    {
+        return;
+    }
+
+    RemoveIncomingRoad();
+    if (bHasOutgoingRoad && OutgoingRoad == Direction)
+    {
+        RemoveOutgoingRoad();
+    }
+
+    bHasIncomingRoad = true;
+    IncomingRoad = Direction;
+    UE_LOG(LogTemp, Log, TEXT("SetIncomingRoad: Cell (%d, %d) <- Dir %d"), Coordinates.X, Coordinates.Z, static_cast<int32>(Direction));
+    RefreshSelfOnly();
 }
 
 bool AHexCell::HasRoad() const
 {
     bool Result = bHasIncomingRoad || bHasOutgoingRoad;
-    UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d) HasRoad: %d"), Coordinates.X, Coordinates.Z, Result);
     return Result;
 }
 
@@ -158,8 +185,6 @@ bool AHexCell::HasRoadThroughEdge(EHexDirection Direction) const
 {
     bool Result = (bHasIncomingRoad && IncomingRoad == Direction) ||
         (bHasOutgoingRoad && OutgoingRoad == Direction);
-    UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d) HasRoadThroughEdge in direction %d: %d"),
-        Coordinates.X, Coordinates.Z, static_cast<int32>(Direction), Result);
     return Result;
 }
 

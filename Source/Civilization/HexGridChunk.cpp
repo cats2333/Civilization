@@ -3,6 +3,11 @@
 #include "HexMetrics.h"
 #include "Components/DecalComponent.h"
 #include "ProceduralMeshComponent.h"
+
+#define LOG_TO_FILE(Category, Verbosity, Format, ...) \
+    UE_LOG(Category, Verbosity, Format, ##__VA_ARGS__); \
+    GLog->Logf(ELogVerbosity::Verbosity, TEXT("%s"), *FString::Printf(Format, ##__VA_ARGS__));
+
 AHexGridChunk::AHexGridChunk()
 {
     PrimaryActorTick.bCanEverTick = true;
@@ -13,30 +18,18 @@ AHexGridChunk::AHexGridChunk()
     HexMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
     HexMeshComponent->SetCollisionProfileName(TEXT("BlockAll"));
 
-    static ConstructorHelpers::FObjectFinder<UMaterialInterface> MaterialFinder(TEXT("/Game/Materials/M_HexGrid.M_HexGrid"));
-    if (MaterialFinder.Succeeded())
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> DefaultMaterialFinder(TEXT("/Game/Materials/M_HexGrid.M_HexGrid"));
+    if (DefaultMaterialFinder.Succeeded())
     {
-        HexMeshComponent->SetMaterial(0, MaterialFinder.Object);
+        DefaultMaterial = DefaultMaterialFinder.Object;
+        HexMeshComponent->SetMaterial(0, DefaultMaterial);
     }
 
-    // 加载贴花材质
     RoadDecalMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Materials/M_RoadDecal"));
     if (!RoadDecalMaterial)
     {
-        UE_LOG(LogTemp, Warning, TEXT("Failed to load M_RoadDecal material! Check path: /Game/Materials/M_RoadDecal"));
+        UE_LOG(LogTemp, Warning, TEXT("Failed to load M_RoadDecal material! Using fallback."));
         RoadDecalMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/EngineMaterials/DefaultDecalMaterial"));
-        if (RoadDecalMaterial)
-        {
-            UE_LOG(LogTemp, Log, TEXT("Using fallback DefaultDecalMaterial"));
-        }
-        else
-        {
-            UE_LOG(LogTemp, Error, TEXT("Failed to load DefaultDecalMaterial!"));
-        }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Log, TEXT("Successfully loaded M_RoadDecal material in constructor"));
     }
 
     Cells.SetNum(HexMetrics::ChunkSizeX * HexMetrics::ChunkSizeZ);
@@ -51,7 +44,6 @@ void AHexGridChunk::BeginPlay()
 void AHexGridChunk::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-    //TriangulateCells();
     SetActorTickEnabled(false);
 }
 
@@ -70,35 +62,23 @@ void AHexGridChunk::Refresh()
 void AHexGridChunk::TriangulateCells()
 {
     ClearMeshData();
+    //CellMaterials.Empty();
 
-    UE_LOG(LogTemp, Log, TEXT("TriangulateCells: Total Cells=%d"), Cells.Num());
     for (AHexCell* Cell : Cells)
     {
         if (!Cell) continue;
         FVector Center = Cell->GetPosition();
         FColor SRGBColor = Cell->Color.ToFColor(true);
 
-        bool bHasRoad = Cell->HasRoad();
-
-        if (bHasRoad) {
-            UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d) HasRoad: %d"), Cell->Coordinates.X, Cell->Coordinates.Z, bHasRoad);
-        }
-
         for (int32 i = 0; i < 6; i++)
         {
             EHexDirection Direction = static_cast<EHexDirection>(i);
-            bool bHasRoadThroughEdge = Cell->HasRoadThroughEdge(Direction);
-            UE_LOG(LogTemp, Log, TEXT("Checking direction %d for cell (%d, %d): HasRoadThroughEdge=%d"),
-                static_cast<int32>(Direction), Cell->Coordinates.X, Cell->Coordinates.Z, bHasRoadThroughEdge);
-
             HexMetrics::FEdgeVertices E = HexMetrics::FEdgeVertices(
                 Center + HexMetrics::GetFirstSolidCorner(Direction),
                 Center + HexMetrics::GetSecondSolidCorner(Direction)
             );
 
-            {
-                TriangulateEdgeFan(Center, E, SRGBColor);
-            }
+            TriangulateEdgeFan(Center, E, SRGBColor);
 
             if (Direction <= EHexDirection::SE)
             {
@@ -108,6 +88,22 @@ void AHexGridChunk::TriangulateCells()
     }
 
     ApplyMesh();
+
+    /*for (AHexCell* Cell : Cells)
+    {
+        if (!Cell) continue;
+        UMaterialInstanceDynamic* DynMaterial = CellMaterials.FindRef(Cell);
+        if (DynMaterial)
+        {
+            HexMeshComponent->SetMaterial(0, DynMaterial);
+        }
+        else
+        {
+            UMaterialInstanceDynamic* DefaultDynMaterial = UMaterialInstanceDynamic::Create(DefaultMaterial, this);
+            DefaultDynMaterial->SetVectorParameterValue(FName("BaseColor"), Cell->Color);
+            HexMeshComponent->SetMaterial(0, DefaultDynMaterial);
+        }
+    }*/
 }
 
 void AHexGridChunk::AddTriangle(FVector V1, FVector V2, FVector V3)
@@ -188,13 +184,13 @@ void AHexGridChunk::AddQuadColor(FColor Color)
 void AHexGridChunk::TriangulateEdgeFan(FVector Center, HexMetrics::FEdgeVertices Edge, FColor Color)
 {
     AddTriangle(Center, Edge.V1, Edge.V2);
-    AddTriangleColor(Color, Color, Color);
+    AddTriangleColor(Color);
     AddTriangle(Center, Edge.V2, Edge.V3);
-    AddTriangleColor(Color, Color, Color);
+    AddTriangleColor(Color);
     AddTriangle(Center, Edge.V3, Edge.V4);
-    AddTriangleColor(Color, Color, Color);
+    AddTriangleColor(Color);
     AddTriangle(Center, Edge.V4, Edge.V5);
-    AddTriangleColor(Color, Color, Color);
+    AddTriangleColor(Color);
 }
 
 void AHexGridChunk::TriangulateEdgeStrip(HexMetrics::FEdgeVertices E1, FColor C1, HexMetrics::FEdgeVertices E2, FColor C2)
@@ -416,9 +412,9 @@ void AHexGridChunk::TriangulateBoundaryTriangle(FVector Begin, AHexCell* BeginCe
 void AHexGridChunk::AddTriangleUnperturbed(FVector V1, FVector V2, FVector V3)
 {
     int32 VertexIndex = Vertices.Num();
-    Vertices.Add(HexMetrics::Perturb(V1));
-    Vertices.Add(HexMetrics::Perturb(V2));
-    Vertices.Add(HexMetrics::Perturb(V3));
+    Vertices.Add(V1);
+    Vertices.Add(V2);
+    Vertices.Add(V3);
 
     Normals.Add(FVector(0.0f, 0.0f, 1.0f));
     Normals.Add(FVector(0.0f, 0.0f, 1.0f));
@@ -448,7 +444,6 @@ void AHexGridChunk::ApplyMesh()
 
 void AHexGridChunk::ClearRoadDecals()
 {
-    UE_LOG(LogTemp, Log, TEXT("Clearing road decals, Total Decals=%d"), RoadDecals.Num());
     for (UDecalComponent* Decal : RoadDecals)
     {
         if (Decal)
@@ -461,7 +456,11 @@ void AHexGridChunk::ClearRoadDecals()
 
 void AHexGridChunk::CreateRoadDecal(FVector Start, FVector End, float Width, UMaterialInterface* DecalMaterial)
 {
-    if (!DecalMaterial) return;
+    if (!DecalMaterial)
+    {
+        LOG_TO_FILE(LogTemp, Warning, TEXT("CreateRoadDecal: DecalMaterial is null"));
+        return;
+    }
 
     FVector DecalLocation = (Start + End) * 0.5f;
     FVector Direction = (End - Start).GetSafeNormal();
@@ -486,87 +485,11 @@ void AHexGridChunk::CreateRoadDecal(FVector Start, FVector End, float Width, UMa
     Decal->SetFadeScreenSize(0.0f);
 
     RoadDecals.Add(Decal);
+
+    LOG_TO_FILE(LogTemp, Log, TEXT("Created road decal from (%f, %f) to (%f, %f), Size=(%f, %f, %f), Visibility=%s, Material=%s"),
+        Start.X, Start.Y, End.X, End.Y,
+        Decal->DecalSize.X, Decal->DecalSize.Y, Decal->DecalSize.Z,
+        Decal->IsVisible() ? TEXT("Visible") : TEXT("Hidden"),
+        *GetNameSafe(DecalMaterial));
 }
 
-//void AHexGridChunk::CreateRoadDecal(FVector Start, FVector End, float Width, UMaterialInterface* DecalMaterial)
-//{
-//    if (!DecalMaterial)
-//    {
-//        UE_LOG(LogTemp, Warning, TEXT("DecalMaterial is null!"));
-//        return;
-//    }
-//
-//    UWorld* World = GetWorld();
-//    if (!World)
-//    {
-//        UE_LOG(LogTemp, Error, TEXT("GetWorld() returned nullptr! Cannot create decal."));
-//        return;
-//    }
-//
-//    const int32 MaxDecals = 50;
-//    if (RoadDecals.Num() >= MaxDecals)
-//    {
-//        UDecalComponent* OldDecal = RoadDecals[0];
-//        if (OldDecal)
-//        {
-//            OldDecal->DestroyComponent();
-//        }
-//        RoadDecals.RemoveAt(0);
-//        UE_LOG(LogTemp, Log, TEXT("Removed oldest decal to maintain limit. Current Decals: %d"), RoadDecals.Num());
-//    }
-//
-//    FVector DecalLocation = (Start + End) * 0.5f;
-//    FVector Direction = (End - Start).GetSafeNormal();
-//    FRotator DecalRotation = Direction.Rotation();
-//    DecalRotation.Pitch = 90.0f;
-//    float Length = (End - Start).Size();
-//
-//    // 简化 Z 值计算：假设网格高度为 0，直接抬高
-//    DecalLocation.Z = 0.2f; // 默认抬高，避免射线检测
-//    /*
-//    FHitResult HitResult;
-//    FVector TraceStart = DecalLocation + FVector(0, 0, 1000);
-//    FVector TraceEnd = DecalLocation - FVector(0, 0, 1000);
-//    if (World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility))
-//    {
-//        DecalLocation.Z = HitResult.Location.Z + 0.2f;
-//        UE_LOG(LogTemp, Log, TEXT("Adjusted Decal Z to: %.3f"), DecalLocation.Z);
-//    }
-//    else
-//    {
-//        DecalLocation.Z = 0.2f;
-//        UE_LOG(LogTemp, Warning, TEXT("Line trace failed to adjust Decal Z, using default Z=0.2"));
-//    }
-//    */
-//
-//    UDecalComponent* Decal = NewObject<UDecalComponent>(this, NAME_None);
-//    if (!Decal)
-//    {
-//        UE_LOG(LogTemp, Error, TEXT("Failed to create UDecalComponent!"));
-//        return;
-//    }
-//
-//    Decal->SetRelativeLocation(DecalLocation);
-//    Decal->SetRelativeRotation(DecalRotation);
-//    Decal->DecalSize = FVector(Length * 0.5f, Width, 10.0f);
-//    Decal->SetDecalMaterial(DecalMaterial);
-//    Decal->SetFadeScreenSize(0.0f);
-//    Decal->SortOrder = RoadDecals.Num() + 1;
-//
-//    Decal->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
-//    Decal->RegisterComponent();
-//
-//    if (!Decal->IsRegistered())
-//    {
-//        UE_LOG(LogTemp, Error, TEXT("Decal component failed to register! Decal: %s, Owner: %s"),
-//            *GetNameSafe(Decal), *GetNameSafe(Decal->GetOwner()));
-//        return;
-//    }
-//
-//    RoadDecals.Add(Decal);
-//
-//    UE_LOG(LogTemp, Log, TEXT("Created road decal: Start=(%.3f, %.3f, %.3f), End=(%.3f, %.3f, %.3f), Length=%.3f, DecalSize=(%.3f, %.3f, %.3f)"),
-//        Start.X, Start.Y, Start.Z, End.X, End.Y, End.Z, Length,
-//        Decal->DecalSize.X, Decal->DecalSize.Y, Decal->DecalSize.Z);
-//    UE_LOG(LogTemp, Log, TEXT("Total RoadDecals after creation: %d"), RoadDecals.Num());
-//}

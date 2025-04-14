@@ -2,24 +2,35 @@
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 #include "Camera/CameraComponent.h"
-#include "Framework/Application/SlateApplication.h"
-#include "EnhancedInputSubsystems.h"
-#include "EnhancedInputComponent.h"
-#include "InputCoreTypes.h"
+
+#define LOG_TO_FILE(Category, Verbosity, Format, ...) \
+    UE_LOG(Category, Verbosity, Format, ##__VA_ARGS__); \
+    GLog->Logf(ELogVerbosity::Verbosity, TEXT("%s"), *FString::Printf(Format, ##__VA_ARGS__));
+
 UHexMapEditor::UHexMapEditor()
 {
     PrimaryComponentTick.bCanEverTick = true;
+    bIsFirstClick = true;
+    PreviousCell = nullptr;
+    BrushSize = 1;
+    ActiveElevation = 0;
+    MoveSpeed = 30.0f;
+    SwivelMinZoom = 5.0f;
+    SwivelMaxZoom = 80.0f;
 }
 
 void UHexMapEditor::BeginPlay()
 {
     Super::BeginPlay();
+    bIsFirstClick = true;
+    PreviousCell = nullptr;
+
     APlayerController* PC = GetWorld()->GetFirstPlayerController();
     if (PC)
     {
         if (APawn* PlayerPawn = PC->GetPawn())
         {
-            UE_LOG(LogTemp, Log, TEXT("Pawn Class: %s"), *PlayerPawn->GetClass()->GetName());
+            LOG_TO_FILE(LogTemp, Log, TEXT("Pawn Class: %s"), *PlayerPawn->GetClass()->GetName());
         }
 
         PC->bShowMouseCursor = true;
@@ -35,12 +46,12 @@ void UHexMapEditor::BeginPlay()
         {
             if (HexGrid)
             {
-                UE_LOG(LogTemp, Log, TEXT("HexGrid is set! CellClass: %s, ChunkClass: %s"),
+                LOG_TO_FILE(LogTemp, Log, TEXT("HexGrid is set! CellClass: %s, ChunkClass: %s"),
                     *GetNameSafe(HexGrid->CellClass), *GetNameSafe(HexGrid->ChunkClass));
             }
             else
             {
-                UE_LOG(LogTemp, Warning, TEXT("HexGrid is null in BeginPlay! Please set it in the editor."));
+                LOG_TO_FILE(LogTemp, Warning, TEXT("HexGrid is null in BeginPlay! Please set it in the editor."));
             }
 
             UCameraComponent* Camera = PlayerPawn->FindComponentByClass<UCameraComponent>();
@@ -48,58 +59,54 @@ void UHexMapEditor::BeginPlay()
             {
                 Camera = NewObject<UCameraComponent>(PlayerPawn, TEXT("CameraComponent"));
                 Camera->SetupAttachment(PlayerPawn->GetRootComponent());
-                Camera->SetRelativeLocation(FVector(0.0f, 0.0f, 10.0f));
-                Camera->SetRelativeRotation(FRotator(-45.0f, 0.0f, 0.0f));
+                Camera->SetRelativeLocation(FVector(0.0f, 0.0f, 1000.0f));
+                Camera->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
                 Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
                 Camera->OrthoWidth = 50.0f;
-                Camera->SetOrthoFarClipPlane(100000.0f);
-                Camera->SetOrthoNearClipPlane(0.00001f);
                 Camera->RegisterComponent();
+                LOG_TO_FILE(LogTemp, Log, TEXT("Created Orthographic Camera, OrthoWidth=%f"), Camera->OrthoWidth);
             }
             else
             {
-                Camera->SetRelativeLocation(FVector(-300.0f, 0.0f, 200.0f));
-                Camera->SetRelativeRotation(FRotator(-45.0f, 0.0f, 0.0f));
-                Camera->SetOrthoFarClipPlane(100000.0f);
+                Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
+                Camera->SetRelativeLocation(FVector(0.0f, 0.0f, 1000.0f));
+                Camera->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
+                Camera->OrthoWidth = 50.0f;
+                LOG_TO_FILE(LogTemp, Log, TEXT("Updated Camera to Orthographic, OrthoWidth=%f"), Camera->OrthoWidth);
             }
-            PlayerPawn->GetRootComponent()->SetRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
         }
 
-        if (UInputComponent* InputComponent = PC->InputComponent)
+        if (UInputComponent* InputComponent = GetOwner()->FindComponentByClass<UInputComponent>())
         {
             InputComponent->BindAxis("MoveForward", this, &UHexMapEditor::MoveCameraForward);
             InputComponent->BindAxis("MoveRight", this, &UHexMapEditor::MoveCameraRight);
             InputComponent->BindAxis("MouseScroll", this, &UHexMapEditor::AdjustCameraZoom);
-            InputComponent->BindAxis("LookUp", this, &UHexMapEditor::RotateCamera);
+            LOG_TO_FILE(LogTemp, Log, TEXT("Input bindings set: MoveForward, MoveRight, MouseScroll"));
         }
     }
 
     SelectColor(0);
-
+    SetBrushSize(1);
 }
+
 void UHexMapEditor::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
     APlayerController* PC = GetWorld()->GetFirstPlayerController();
-    if (PC && PC->IsInputKeyDown(EKeys::LeftMouseButton))
+    if (PC && PC->WasInputKeyJustPressed(EKeys::LeftMouseButton))
     {
+        UE_LOG(LogTemp, Log, TEXT("Left mouse clicked, bIsFirstClick=%s"), bIsFirstClick ? TEXT("true") : TEXT("false"));
         HandleInput();
     }
-    else
-    {
-        if (bIsDragging)
-        {
-            bIsDragging = false;
-            bHasSetRoad = false;
-            UE_LOG(LogTemp, Log, TEXT("Mouse released, drag ended, bHasSetRoad reset to false"));
-        }
-        PreviousCell = nullptr;
-    }
 }
+
 void UHexMapEditor::ShowEditorUI(bool bVisible)
 {
-}void UHexMapEditor::HandleInput()
+    // 空实现，待 UI 逻辑
+}
+
+void UHexMapEditor::HandleInput()
 {
     if (!HexGrid)
     {
@@ -108,91 +115,126 @@ void UHexMapEditor::ShowEditorUI(bool bVisible)
     }
 
     APlayerController* PC = GetWorld()->GetFirstPlayerController();
-    if (!PC) return;
+    if (!PC)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("PlayerController is null!"));
+        return;
+    }
 
     FVector WorldPos, WorldDir;
-    PC->DeprojectMousePositionToWorld(WorldPos, WorldDir);
+    if (!PC->DeprojectMousePositionToWorld(WorldPos, WorldDir))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Failed to deproject mouse position!"));
+        return;
+    }
 
     FHitResult HitResult;
     if (GetWorld()->LineTraceSingleByChannel(HitResult, WorldPos, WorldPos + WorldDir * 10000.f, ECC_Visibility))
     {
         AHexCell* CurrentCell = HexGrid->GetCellByPosition(HitResult.Location);
+        UE_LOG(LogTemp, Log, TEXT("HandleInput: Hit at (%f, %f, %f), Cell=%s"),
+            HitResult.Location.X, HitResult.Location.Y, HitResult.Location.Z,
+            CurrentCell ? *GetNameSafe(CurrentCell) : TEXT("nullptr"));
         if (CurrentCell)
         {
-            if (PreviousCell && PreviousCell != CurrentCell)
-            {
-                ValidateDrag(CurrentCell);
-            }
-            else
-            {
-                bIsDragging = false;
-            }
             EditCells(CurrentCell);
-            PreviousCell = CurrentCell;
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("No cell found at hit position!"));
         }
     }
     else
     {
-        PreviousCell = nullptr;
+        UE_LOG(LogTemp, Warning, TEXT("Line trace failed!"));
     }
-
-}
-void UHexMapEditor::ValidateDrag(AHexCell* CurrentCell) {
-    if (!PreviousCell || !CurrentCell || PreviousCell == CurrentCell) {
-        bIsDragging = false;
-        return;
-    }
-    for (int32 i = 0; i < 6; i++) {
-        EHexDirection Dir = static_cast<EHexDirection>(i);
-        if (PreviousCell->GetNeighbor(Dir) == CurrentCell) {
-            bIsDragging = true;
-            DragDirection = Dir;
-            UE_LOG(LogTemp, Log, TEXT("Drag from (%d, %d) to (%d, %d), Direction: %d"),
-                PreviousCell->Coordinates.X, PreviousCell->Coordinates.Z,
-                CurrentCell->Coordinates.X, CurrentCell->Coordinates.Z,
-                static_cast<int32>(Dir));
-            return;
-        }
-    }
-    bIsDragging = false;
 }
 
 void UHexMapEditor::EditCells(AHexCell* Center)
 {
-    if (!Center || !HexGrid) return;
-
-    int32 CenterX = Center->Coordinates.X;
-    int32 CenterZ = Center->Coordinates.Z;
-
-    for (int32 r = 0, z = CenterZ - BrushSize; z <= CenterZ; z++, r++)
+    if (!Center || !HexGrid)
     {
-        for (int32 x = CenterX - r; x <= CenterX + BrushSize; x++)
+        LOG_TO_FILE(LogTemp, Warning, TEXT("EditCells: Center=%s, HexGrid=%s"),
+            Center ? *GetNameSafe(Center) : TEXT("nullptr"),
+            HexGrid ? *GetNameSafe(HexGrid) : TEXT("nullptr"));
+        return;
+    }
+
+    if (!Center->Chunk)
+    {
+        LOG_TO_FILE(LogTemp, Warning, TEXT("EditCells: Center cell has no Chunk assigned!"));
+        return;
+    }
+
+    LOG_TO_FILE(LogTemp, Log, TEXT("EditCells: Center at (%d, %d), BrushSize=%d"),
+        Center->Coordinates.X, Center->Coordinates.Z, BrushSize);
+
+    if (EditMode == EEditMode::Road || EditMode == EEditMode::Elevation || BrushSize <= 1)
+    {
+        EditCell(Center);
+    }
+    else
+    {
+        TArray<AHexCell*> CellsToEdit;
+        CellsToEdit.Add(Center);
+        for (int32 Ring = 1; Ring <= BrushSize; Ring++)
         {
-            AHexCell* Cell = HexGrid->GetCellByCoordinates(FHexCoordinates(x, z));
+            for (int32 Dir = 0; Dir < 6; Dir++)
+            {
+                EHexDirection Direction = static_cast<EHexDirection>(Dir);
+                AHexCell* Neighbor = Center;
+                for (int32 Step = 0; Step < Ring; Step++)
+                {
+                    if (Neighbor)
+                    {
+                        Neighbor = Neighbor->GetNeighbor(Direction);
+                    }
+                }
+                if (Neighbor)
+                {
+                    CellsToEdit.AddUnique(Neighbor);
+                    for (int32 NeighborDir = 0; NeighborDir < 6; NeighborDir++)
+                    {
+                        AHexCell* SubNeighbor = Neighbor->GetNeighbor(static_cast<EHexDirection>(NeighborDir));
+                        if (SubNeighbor)
+                        {
+                            CellsToEdit.AddUnique(SubNeighbor);
+                        }
+                    }
+                }
+            }
+        }
+
+        for (AHexCell* Cell : CellsToEdit)
+        {
             EditCell(Cell);
         }
     }
 
-    for (int32 r = 0, z = CenterZ + BrushSize; z > CenterZ; z--, r++)
+    if (EditMode != EEditMode::Road || RoadMode == EEditRoadMode::No)
     {
-        for (int32 x = CenterX - BrushSize; x <= CenterX + r; x++)
-        {
-            AHexCell* Cell = HexGrid->GetCellByCoordinates(FHexCoordinates(x, z));
-            EditCell(Cell);
-        }
+        HexGrid->Refresh();
     }
-
-    HexGrid->Refresh();
-
 }
+
 void UHexMapEditor::EditCell(AHexCell* Cell)
 {
-    if (!Cell) return;
+    if (!Cell)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("EditCell: Cell is null!"));
+        return;
+    }
 
     switch (EditMode)
     {
     case EEditMode::Color:
         Cell->Color = ActiveColor;
+        UE_LOG(LogTemp, Log, TEXT("Set cell (%d, %d) color to %s"),
+            Cell->Coordinates.X, Cell->Coordinates.Z, *ActiveColor.ToString());
+        if (Cell->Chunk)
+        {
+            Cell->Chunk->Refresh();
+        }
         break;
     case EEditMode::Elevation:
         Cell->SetElevation(ActiveElevation);
@@ -202,31 +244,86 @@ void UHexMapEditor::EditCell(AHexCell* Cell)
         {
         case EEditRoadMode::No:
             Cell->RemoveRoad();
-            //if (Cell->Chunk)
-            //{
-            //    Cell->Chunk->ClearRoadDecals(); // 清理贴花
-            //    Cell->Chunk->Refresh(); // 只刷新网格
-            //}
+            if (Cell->Chunk)
+            {
+                Cell->Chunk->ClearRoadDecals();
+            }
             break;
         case EEditRoadMode::Yes:
-            if (bIsDragging && PreviousCell && PreviousCell != Cell && !bHasSetRoad)
-                //if ( PreviousCell && PreviousCell != Cell)
+            UE_LOG(LogTemp, Log, TEXT("Road mode: bIsFirstClick=%s, PreviousCell=%s"),
+                bIsFirstClick ? TEXT("true") : TEXT("false"),
+                PreviousCell ? *GetNameSafe(PreviousCell) : TEXT("nullptr"));
+            if (bIsFirstClick)
             {
-                PreviousCell->SetOutgoingRoad(DragDirection);
-                bHasSetRoad = true;
-                UE_LOG(LogTemp, Log, TEXT("Road from (%d, %d) to (%d, %d), Direction: %d"),
-                    PreviousCell->Coordinates.X, PreviousCell->Coordinates.Z,
-                    Cell->Coordinates.X, Cell->Coordinates.Z,
-                    static_cast<int32>(DragDirection));
-
-               
-                // 直接生成贴花，不调用 TriangulateCells
-                if (PreviousCell->Chunk)
+                if (PreviousCell && PreviousCell != Cell)
                 {
-                    FVector Start = PreviousCell->GetPosition();
-                    FVector End = Cell->GetPosition();
-                    PreviousCell->Chunk->CreateRoadDecal(Start, End, 0.5f, PreviousCell->Chunk->RoadDecalMaterial);
+                    UE_LOG(LogTemp, Log, TEXT("Clearing previous highlight for cell (%d, %d)"),
+                        PreviousCell->Coordinates.X, PreviousCell->Coordinates.Z);
                 }
+                PreviousCell = Cell;
+                bIsFirstClick = false;
+                UE_LOG(LogTemp, Log, TEXT("First click on cell (%d, %d), waiting for second click"),
+                    Cell->Coordinates.X, Cell->Coordinates.Z);
+            }
+            else
+            {
+                if (!PreviousCell)
+                {
+                    UE_LOG(LogTemp, Warning, TEXT("PreviousCell is null on second click, resetting"));
+                    PreviousCell = Cell;
+                    bIsFirstClick = false;
+                    UE_LOG(LogTemp, Log, TEXT("Reset to first click on cell (%d, %d)"),
+                        Cell->Coordinates.X, Cell->Coordinates.Z);
+                    break;
+                }
+
+                if (PreviousCell == Cell)
+                {
+                    UE_LOG(LogTemp, Log, TEXT("Same cell clicked again, clearing highlight"));
+                    PreviousCell = nullptr;
+                    bIsFirstClick = true;
+                    break;
+                }
+
+                bool bIsNeighbor = false;
+                EHexDirection NeighborDirection = EHexDirection::E;
+                for (int32 i = 0; i < 6; i++)
+                {
+                    EHexDirection Dir = static_cast<EHexDirection>(i);
+                    AHexCell* Neighbor = PreviousCell->GetNeighbor(Dir);
+                    if (Neighbor == Cell)
+                    {
+                        bIsNeighbor = true;
+                        NeighborDirection = Dir;
+                        break;
+                    }
+                }
+
+                UE_LOG(LogTemp, Log, TEXT("Clearing previous highlight for cell (%d, %d)"),
+                    PreviousCell->Coordinates.X, PreviousCell->Coordinates.Z);
+
+                if (bIsNeighbor)
+                {
+                    PreviousCell->SetOutgoingRoad(NeighborDirection);
+                    if (PreviousCell->Chunk)
+                    {
+                        FVector Start = PreviousCell->GetPosition();
+                        FVector End = Cell->GetPosition();
+                        PreviousCell->Chunk->CreateRoadDecal(Start, End, 0.5f, PreviousCell->Chunk->RoadDecalMaterial);
+                        UE_LOG(LogTemp, Log, TEXT("Road created from (%d, %d) to (%d, %d), Direction: %d"),
+                            PreviousCell->Coordinates.X, PreviousCell->Coordinates.Z,
+                            Cell->Coordinates.X, Cell->Coordinates.Z, static_cast<int32>(NeighborDirection));
+                    }
+                }
+                else
+                {
+                    UE_LOG(LogTemp, Warning, TEXT("Second click on (%d, %d) is not a neighbor of (%d, %d), please select a neighboring cell"),
+                        Cell->Coordinates.X, Cell->Coordinates.Z,
+                        PreviousCell->Coordinates.X, PreviousCell->Coordinates.Z);
+                }
+
+                PreviousCell = Cell;
+                bIsFirstClick = false;
             }
             break;
         case EEditRoadMode::Ignore:
@@ -237,26 +334,58 @@ void UHexMapEditor::EditCell(AHexCell* Cell)
     }
 }
 
-void UHexMapEditor::SetBrushSize(float Size)
-{
-    BrushSize = FMath::RoundToInt(Size);
-    UE_LOG(LogTemp, Log, TEXT("Set BrushSize to %d"), BrushSize);
-}void UHexMapEditor::SetElevation(float Elevation)
-{
-    ActiveElevation = FMath::RoundToInt(Elevation);
-    UE_LOG(LogTemp, Log, TEXT("Set ActiveElevation to %d"), ActiveElevation);
-}void UHexMapEditor::SelectColor(int32 Index)
+void UHexMapEditor::SelectColor(int32 Index)
 {
     if (Colors.IsValidIndex(Index))
     {
         ActiveColor = Colors[Index];
         UE_LOG(LogTemp, Log, TEXT("Selected color index: %d, Color: %s"), Index, *ActiveColor.ToString());
     }
-    else
+}
+
+void UHexMapEditor::SetBrushSize(float Size)
+{
+    BrushSize = FMath::RoundToInt(Size);
+    UE_LOG(LogTemp, Log, TEXT("Set BrushSize to %d"), BrushSize);
+}
+
+void UHexMapEditor::SetElevation(float Elevation)
+{
+    ActiveElevation = FMath::RoundToInt(Elevation);
+    UE_LOG(LogTemp, Log, TEXT("Set ActiveElevation to %d"), ActiveElevation);
+}
+
+TArray<FString> UHexMapEditor::GetEditModeOptions()
+{
+    TArray<FString> Options;
+    UEnum* Enum = StaticEnum<EEditMode>();
+    if (Enum)
     {
-        UE_LOG(LogTemp, Warning, TEXT("Invalid color index: %d"), Index);
+        for (int32 i = 0; i < Enum->NumEnums() - 1; i++)
+        {
+            FString EnumValue = Enum->GetNameStringByIndex(i);
+            Options.Add(EnumValue);
+        }
     }
-}void UHexMapEditor::MoveCameraForward(float AxisValue)
+    return Options;
+}
+
+TArray<FString> UHexMapEditor::GetRoadModeOptions()
+{
+    TArray<FString> Options;
+    UEnum* Enum = StaticEnum<EEditRoadMode>();
+    if (Enum)
+    {
+        for (int32 i = 0; i < Enum->NumEnums() - 1; i++)
+        {
+            FString EnumValue = Enum->GetNameStringByIndex(i);
+            Options.Add(EnumValue);
+        }
+    }
+    return Options;
+}
+
+void UHexMapEditor::MoveCameraForward(float AxisValue)
 {
     MoveCamera(AxisValue, true);
 }void UHexMapEditor::MoveCameraRight(float AxisValue)
@@ -295,46 +424,5 @@ void UHexMapEditor::SetBrushSize(float Size)
         }
     }
 
-}void UHexMapEditor::RotateCamera(float AxisValue)
-{
-    APlayerController* PC = GetWorld()->GetFirstPlayerController();
-    if (PC && PC->GetPawn() && AxisValue != 0.0f && PC->IsInputKeyDown(EKeys::RightMouseButton))
-    {
-        if (UCameraComponent* Camera = PC->GetPawn()->FindComponentByClass<UCameraComponent>())
-        {
-            FRotator CameraRotation = Camera->GetRelativeRotation();
-            CameraRotation.Pitch = FMath::Clamp(CameraRotation.Pitch + AxisValue * 100.0f * GetWorld()->GetDeltaSeconds(), -SwivelMaxZoom, -SwivelMinZoom);
-            Camera->SetRelativeRotation(CameraRotation);
-        }
-    }
 }
 
-TArray<FString> UHexMapEditor::GetEditModeOptions()
-{
-    TArray<FString> Options;
-    UEnum* Enum = StaticEnum<EEditMode>();
-    if (Enum)
-    {
-        for (int32 i = 0; i < Enum->NumEnums() - 1; i++)
-        {
-            FString EnumValue = Enum->GetNameStringByIndex(i);
-            Options.Add(EnumValue);
-        }
-    }
-    return Options;
-}
-
-TArray<FString> UHexMapEditor::GetRoadModeOptions()
-{
-    TArray<FString> Options;
-    UEnum* Enum = StaticEnum<EEditRoadMode>();
-    if (Enum)
-    {
-        for (int32 i = 0; i < Enum->NumEnums() - 1; i++)
-        {
-            FString EnumValue = Enum->GetNameStringByIndex(i);
-            Options.Add(EnumValue);
-        }
-    }
-    return Options;
-}

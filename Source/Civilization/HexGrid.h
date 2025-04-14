@@ -37,6 +37,9 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexGrid")
     TSubclassOf<AHexGridChunk> ChunkClass;
 
+    // ÐÂÔö Getter
+    UFUNCTION(BlueprintCallable, Category = "HexGrid")
+    TArray<AHexCell*> GetCells() const { return Cells; }
 protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexGrid")
     int32 ChunkCountX = 4;

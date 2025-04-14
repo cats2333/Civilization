@@ -28,7 +28,6 @@ public:
     void ClearRoadDecals();
     void CreateRoadDecal(FVector Start, FVector End, float Width, UMaterialInterface* DecalMaterial);
 
-
     UMaterialInterface* RoadDecalMaterial;
 protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -68,7 +67,11 @@ protected:
     void TriangulateBoundaryTriangle(FVector Begin, AHexCell* BeginCell, FVector Left, AHexCell* LeftCell, FVector Boundary, FLinearColor BoundaryColor);
     void AddTriangleUnperturbed(FVector V1, FVector V2, FVector V3);
 
+    UPROPERTY()
+    UMaterialInterface* DefaultMaterial;
 
+    UPROPERTY()
+    UMaterialInterface* HighlightMaterial;
 
     void ClearMeshData();
     void ApplyMesh();

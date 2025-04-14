@@ -6,10 +6,9 @@
 #include "HexCoordinates.h"
 #include "HexDirection.h" 
 #include "HexMetrics.h"
-#include "HexGridChunk.h" //
+#include "HexGridChunk.h" 
 #include "HexCell.generated.h"
 
-// 前向声明 EHexDirection
 enum class EHexDirection : uint8;
 
 UCLASS()
@@ -64,6 +63,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Road")
     void SetOutgoingRoad(EHexDirection Direction);
 
+    UFUNCTION(BlueprintCallable, Category = "Road")
+    void SetIncomingRoad(EHexDirection Direction);
+
     UPROPERTY(BlueprintReadOnly, Category = "Road")
     bool bHasIncomingRoad = false;
 
@@ -85,10 +87,16 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Road")
     bool HasRoadThroughEdge(EHexDirection Direction) const;
 
-    // 刷新方法
     UFUNCTION(BlueprintCallable, Category = "Hex Cell")
     void RefreshSelfOnly();
+
+    UFUNCTION(BlueprintCallable, Category = "HexCell")
+    bool IsHighlighted() const { return bIsHighlighted; }
+
+    UPROPERTY()
+    bool bIsHighlighted;
 private:
+
     UPROPERTY()
     TArray<AHexCell*> Neighbors;
 protected:
