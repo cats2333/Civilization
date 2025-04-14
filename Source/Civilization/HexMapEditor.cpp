@@ -24,13 +24,12 @@ void UHexMapEditor::BeginPlay()
     Super::BeginPlay();
     bIsFirstClick = true;
     PreviousCell = nullptr;
-
     APlayerController* PC = GetWorld()->GetFirstPlayerController();
     if (PC)
     {
         if (APawn* PlayerPawn = PC->GetPawn())
         {
-            LOG_TO_FILE(LogTemp, Log, TEXT("Pawn Class: %s"), *PlayerPawn->GetClass()->GetName());
+            UE_LOG(LogTemp, Log, TEXT("Pawn Class: %s"), *PlayerPawn->GetClass()->GetName());
         }
 
         PC->bShowMouseCursor = true;
@@ -46,12 +45,12 @@ void UHexMapEditor::BeginPlay()
         {
             if (HexGrid)
             {
-                LOG_TO_FILE(LogTemp, Log, TEXT("HexGrid is set! CellClass: %s, ChunkClass: %s"),
+                UE_LOG(LogTemp, Log, TEXT("HexGrid is set! CellClass: %s, ChunkClass: %s"),
                     *GetNameSafe(HexGrid->CellClass), *GetNameSafe(HexGrid->ChunkClass));
             }
             else
             {
-                LOG_TO_FILE(LogTemp, Warning, TEXT("HexGrid is null in BeginPlay! Please set it in the editor."));
+                UE_LOG(LogTemp, Warning, TEXT("HexGrid is null in BeginPlay! Please set it in the editor."));
             }
 
             UCameraComponent* Camera = PlayerPawn->FindComponentByClass<UCameraComponent>();
@@ -59,35 +58,36 @@ void UHexMapEditor::BeginPlay()
             {
                 Camera = NewObject<UCameraComponent>(PlayerPawn, TEXT("CameraComponent"));
                 Camera->SetupAttachment(PlayerPawn->GetRootComponent());
-                Camera->SetRelativeLocation(FVector(0.0f, 0.0f, 1000.0f));
-                Camera->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
+                Camera->SetRelativeLocation(FVector(0.0f, 0.0f, 10.0f));
+                Camera->SetRelativeRotation(FRotator(-45.0f, 0.0f, 0.0f));
                 Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
                 Camera->OrthoWidth = 50.0f;
+                Camera->SetOrthoFarClipPlane(100000.0f);
+                Camera->SetOrthoNearClipPlane(0.00001f);
                 Camera->RegisterComponent();
-                LOG_TO_FILE(LogTemp, Log, TEXT("Created Orthographic Camera, OrthoWidth=%f"), Camera->OrthoWidth);
             }
             else
             {
-                Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
-                Camera->SetRelativeLocation(FVector(0.0f, 0.0f, 1000.0f));
-                Camera->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
-                Camera->OrthoWidth = 50.0f;
-                LOG_TO_FILE(LogTemp, Log, TEXT("Updated Camera to Orthographic, OrthoWidth=%f"), Camera->OrthoWidth);
+                Camera->SetRelativeLocation(FVector(-300.0f, 0.0f, 200.0f));
+                Camera->SetRelativeRotation(FRotator(-45.0f, 0.0f, 0.0f));
+                Camera->SetOrthoFarClipPlane(100000.0f);
             }
+            PlayerPawn->GetRootComponent()->SetRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
         }
 
-        if (UInputComponent* InputComponent = GetOwner()->FindComponentByClass<UInputComponent>())
+        if (UInputComponent* InputComponent = PC->InputComponent)
         {
             InputComponent->BindAxis("MoveForward", this, &UHexMapEditor::MoveCameraForward);
             InputComponent->BindAxis("MoveRight", this, &UHexMapEditor::MoveCameraRight);
             InputComponent->BindAxis("MouseScroll", this, &UHexMapEditor::AdjustCameraZoom);
-            LOG_TO_FILE(LogTemp, Log, TEXT("Input bindings set: MoveForward, MoveRight, MouseScroll"));
         }
     }
 
     SelectColor(0);
-    SetBrushSize(1);
+    //SetBrushSize(1);
 }
+
+
 
 void UHexMapEditor::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
@@ -409,9 +409,11 @@ void UHexMapEditor::MoveCameraForward(float AxisValue)
         }
     }
 
-}void UHexMapEditor::AdjustCameraZoom(float Value)
+}
+void UHexMapEditor::AdjustCameraZoom(float Value)
 {
-    if (FMath::Abs(Value) < 0.05f) return;
+    UE_LOG(LogTemp, Log, TEXT("AdjustCameraZoom called with Value=%f"), Value);
+    if (FMath::Abs(Value) < 0.01f) return; // 降低阈值，或直接移除
 
     APlayerController* PC = GetWorld()->GetFirstPlayerController();
     if (PC && PC->GetPawn())
@@ -421,8 +423,16 @@ void UHexMapEditor::MoveCameraForward(float AxisValue)
             float NewOrthoWidth = Camera->OrthoWidth - (Value * 10.0f);
             NewOrthoWidth = FMath::Clamp(NewOrthoWidth, 10.0f, 1000.0f);
             Camera->OrthoWidth = NewOrthoWidth;
+            UE_LOG(LogTemp, Log, TEXT("Set OrthoWidth to %f"), Camera->OrthoWidth);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("CameraComponent not found!"));
         }
     }
-
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("PlayerController or Pawn is null!"));
+    }
 }
 
