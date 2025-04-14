@@ -96,5 +96,4 @@ protected:
     void MoveCameraRight(float AxisValue);
     void MoveCamera(float AxisValue, bool bIsForward);
     void AdjustCameraZoom(float Value);
-    void RotateCamera(float AxisValue);
 };

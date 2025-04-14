@@ -63,6 +63,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Road")
     void SetOutgoingRoad(EHexDirection Direction);
 
+    UFUNCTION(BlueprintCallable, Category = "Road")
+    void SetIncomingRoad(EHexDirection Direction);
+
     UPROPERTY(BlueprintReadOnly, Category = "Road")
     bool bHasIncomingRoad = false;
 
@@ -92,9 +95,10 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "HexCell")
     bool IsHighlighted() const { return bIsHighlighted; }
-private:
+
     UPROPERTY()
     bool bIsHighlighted;
+private:
 
     UPROPERTY()
     TArray<AHexCell*> Neighbors;
