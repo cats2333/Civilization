@@ -10,8 +10,8 @@ const float HexMetrics::HorizontalTerraceStepSize = 1.0f / TerraceSteps;
 const float HexMetrics::VerticalTerraceStepSize = 1.0f / (TerracesPerSlope + 1);
 const float HexMetrics::StreamBedElevationOffset = 0.f;//-1
 
-float HexMetrics::CellPerturbStrength = 0.f; // 1.5 is normal
-float HexMetrics::NoiseScale = 0.f; // 0.01 normal
+float HexMetrics::CellPerturbStrength = 0.5f; // 1.5 is normal
+float HexMetrics::NoiseScale = 0.01f; // 0.01 normal
 
 UTexture2D* HexMetrics::NoiseSource = nullptr;TArray<FColor> HexMetrics::NoiseData;TArray<FVector> HexMetrics::Corners = {
     FVector(0.0f, OuterRadius, 0.0f),           // NE
