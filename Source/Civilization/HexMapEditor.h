@@ -56,7 +56,7 @@ public:
     EEditRoadMode RoadMode = EEditRoadMode::No;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexMapEditor")
-    float MoveSpeed = 100.0f;
+    float MoveSpeed = 30.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexMapEditor")
     float SwivelMinZoom = 10.0f;
@@ -70,9 +70,10 @@ public:
     UFUNCTION(BlueprintCallable, Category = "HexMapEditor")
     TArray<FString> GetRoadModeOptions();
 
+    AHexCell* CurrentHighlightedCell;
 protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HexMapEditor")
-    int32 BrushSize = 0;
+    int32 BrushSize = 1;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HexMapEditor")
     int32 ActiveElevation = 0;

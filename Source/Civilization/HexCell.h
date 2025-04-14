@@ -90,16 +90,25 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Hex Cell")
     void RefreshSelfOnly();
 
+    void SetHighlighted(bool bHighlight);
+
     UFUNCTION(BlueprintCallable, Category = "HexCell")
     bool IsHighlighted() const { return bIsHighlighted; }
 
-    UPROPERTY()
-    bool bIsHighlighted;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HexCell|Highlight")
+    UMaterialInterface* HighlightMaterial;
 private:
 
     UPROPERTY()
     TArray<AHexCell*> Neighbors;
+
+    UPROPERTY()
+    bool bIsHighlighted;
 protected:
     UPROPERTY(VisibleAnywhere)
     USceneComponent* SceneRoot;
+
+    // ¸ßÁÁ Mesh ×é¼þ
+    UPROPERTY(Transient)
+    UProceduralMeshComponent* HighlightMeshComponent;
 };

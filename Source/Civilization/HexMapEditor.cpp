@@ -12,6 +12,7 @@ UHexMapEditor::UHexMapEditor()
     PrimaryComponentTick.bCanEverTick = true;
     bIsFirstClick = true;
     PreviousCell = nullptr;
+    CurrentHighlightedCell = nullptr; // 初始化
     BrushSize = 1;
     ActiveElevation = 0;
     MoveSpeed = 30.0f;
@@ -24,6 +25,7 @@ void UHexMapEditor::BeginPlay()
     Super::BeginPlay();
     bIsFirstClick = true;
     PreviousCell = nullptr;
+    CurrentHighlightedCell = nullptr;
     APlayerController* PC = GetWorld()->GetFirstPlayerController();
     if (PC)
     {
@@ -63,8 +65,12 @@ void UHexMapEditor::BeginPlay()
                 Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
                 Camera->OrthoWidth = 50.0f;
                 Camera->SetOrthoFarClipPlane(100000.0f);
-                Camera->SetOrthoNearClipPlane(0.00001f);
+                Camera->SetOrthoNearClipPlane(-10000.0f);
                 Camera->RegisterComponent();
+
+                // 打印摄像机设置
+                UE_LOG(LogTemp, Log, TEXT("Camera NearClip = %f, FarClip = %f"),
+                    Camera->OrthoNearClipPlane, Camera->OrthoFarClipPlane);
             }
             else
             {
@@ -168,6 +174,14 @@ void UHexMapEditor::EditCells(AHexCell* Center)
 
     LOG_TO_FILE(LogTemp, Log, TEXT("EditCells: Center at (%d, %d), BrushSize=%d"),
         Center->Coordinates.X, Center->Coordinates.Z, BrushSize);
+
+    // 确保单一高亮
+    if (CurrentHighlightedCell && CurrentHighlightedCell != Center)
+    {
+        CurrentHighlightedCell->SetHighlighted(false);
+    }
+    Center->SetHighlighted(true);
+    CurrentHighlightedCell = Center;
 
     if (EditMode == EEditMode::Road || EditMode == EEditMode::Elevation || BrushSize <= 1)
     {
@@ -412,9 +426,9 @@ void UHexMapEditor::MoveCameraForward(float AxisValue)
 }
 void UHexMapEditor::AdjustCameraZoom(float Value)
 {
-    UE_LOG(LogTemp, Log, TEXT("AdjustCameraZoom called with Value=%f"), Value);
+    //UE_LOG(LogTemp, Log, TEXT("AdjustCameraZoom called with Value=%f"), Value);
     if (FMath::Abs(Value) < 0.01f) return; // 降低阈值，或直接移除
-
+    
     APlayerController* PC = GetWorld()->GetFirstPlayerController();
     if (PC && PC->GetPawn())
     {
