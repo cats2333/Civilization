@@ -14,8 +14,8 @@ UHexMapEditor::UHexMapEditor()
     PreviousCell = nullptr;
     BrushSize = 1;
     ActiveElevation = 0;
-    MoveSpeed = 10.0f;
-    SwivelMinZoom = 0.5f;
+    MoveSpeed = 30.0f;
+    SwivelMinZoom = 5.0f;
     SwivelMaxZoom = 80.0f;
 }
 
@@ -86,6 +86,7 @@ void UHexMapEditor::BeginPlay()
     }
 
     SelectColor(0);
+    SetBrushSize(1);
 }
 
 void UHexMapEditor::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -223,12 +224,6 @@ void UHexMapEditor::EditCell(AHexCell* Cell)
         UE_LOG(LogTemp, Warning, TEXT("EditCell: Cell is null!"));
         return;
     }
-
-    UE_LOG(LogTemp, Log, TEXT("EditCell: Processing cell (%d, %d), Mode=%s, RoadMode=%s, Highlight=%s"),
-        Cell->Coordinates.X, Cell->Coordinates.Z,
-        *UEnum::GetValueAsString(EditMode),
-        *UEnum::GetValueAsString(RoadMode),
-        Cell->bIsHighlighted ? TEXT("ON") : TEXT("OFF"));
 
     switch (EditMode)
     {
