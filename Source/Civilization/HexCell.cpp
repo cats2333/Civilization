@@ -1,4 +1,4 @@
-#include "HexCell.h"
+ï»¿#include "HexCell.h"
 #include "HexMetrics.h"
 #include "HexDirection.h"
 
@@ -22,7 +22,7 @@ AHexCell::AHexCell()
     Elevation = 0;
 
     HighlightMeshComponent = nullptr;
-    HighlightMaterial = nullptr; // ³õÊ¼»¯Îª¿Õ£¬¿¿À¶Í¼ÉèÖÃ
+    HighlightMaterial = nullptr; // åˆå§‹åŒ–ä¸ºç©ºï¼Œé è“å›¾è®¾ç½®
 }
 
 void AHexCell::SetupCell(int32 X, int32 Z, const FVector& Position)
@@ -225,7 +225,7 @@ void AHexCell::RefreshSelfOnly()
 //            }
 //            HighlightMeshComponent->SetMaterial(0, MaterialToUse);
 //
-//            // ÆôÓÃ Custom Depth µ÷ÊÔ
+//            // å¯ç”¨ Custom Depth è°ƒè¯•
 //            HighlightMeshComponent->SetRenderCustomDepth(true);
 //            HighlightMeshComponent->CustomDepthStencilValue = 1;
 //        }
@@ -238,15 +238,15 @@ void AHexCell::RefreshSelfOnly()
 //        TArray<FProcMeshTangent> Tangents;
 //
 //        FVector Center = GetPosition();
-//        float HighlightOffsetZ = 1.0f + Elevation * 0.5f; // ¶¯Ì¬µ÷Õû Z Æ«ÒÆ
-//        float OutlineWidth = 0.5f; // Ãè±ß¿í¶È
+//        float HighlightOffsetZ = 1.0f + Elevation * 0.5f; // åŠ¨æ€è°ƒæ•´ Z åç§»
+//        float OutlineWidth = 0.5f; // æè¾¹å®½åº¦
 //
-//        // ´òÓ¡ÖĞĞÄµãºÍ HexMetrics Êı¾İ
+//        // æ‰“å°ä¸­å¿ƒç‚¹å’Œ HexMetrics æ•°æ®
 //        UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d) Center Position = %s, Elevation = %d"),
 //            Coordinates.X, Coordinates.Z, *Center.ToString(), Elevation);
 //        UE_LOG(LogTemp, Log, TEXT("HexMetrics::OuterRadius = %f, OutlineWidth = %f"), HexMetrics::OuterRadius, OutlineWidth);
 //
-//        // ¹¹ÔìÃè±ß Mesh£¨ÄÚÍâ±ß¿ò£©
+//        // æ„é€ æè¾¹ Meshï¼ˆå†…å¤–è¾¹æ¡†ï¼‰
 //        for (int32 i = 0; i < 6; i++)
 //        {
 //            FVector OuterCorner = Center + HexMetrics::Corners[i];
@@ -266,7 +266,7 @@ void AHexCell::RefreshSelfOnly()
 //            Vertices.Add(NextOuterCorner);
 //            Vertices.Add(NextInnerCorner);
 //
-//            // ´òÓ¡¶¥µãÊı¾İ
+//            // æ‰“å°é¡¶ç‚¹æ•°æ®
 //            UE_LOG(LogTemp, Log, TEXT("Vertex %d (OuterCorner): %s"), VertexIndex, *OuterCorner.ToString());
 //            UE_LOG(LogTemp, Log, TEXT("Vertex %d (InnerCorner): %s"), VertexIndex + 1, *InnerCorner.ToString());
 //            UE_LOG(LogTemp, Log, TEXT("Vertex %d (NextOuterCorner): %s"), VertexIndex + 2, *NextOuterCorner.ToString());
@@ -290,7 +290,7 @@ void AHexCell::RefreshSelfOnly()
 //            Triangles.Add(VertexIndex + 3);
 //            Triangles.Add(VertexIndex + 2);
 //
-//            // ´òÓ¡Èı½ÇĞÎË÷Òı
+//            // æ‰“å°ä¸‰è§’å½¢ç´¢å¼•
 //            UE_LOG(LogTemp, Log, TEXT("Triangle 1: %d, %d, %d"), VertexIndex, VertexIndex + 1, VertexIndex + 2);
 //            UE_LOG(LogTemp, Log, TEXT("Triangle 2: %d, %d, %d"), VertexIndex + 1, VertexIndex + 3, VertexIndex + 2);
 //        }
@@ -298,7 +298,7 @@ void AHexCell::RefreshSelfOnly()
 //        UV0.Init(FVector2D(0, 0), Vertices.Num());
 //        Tangents.Init(FProcMeshTangent(1, 0, 0), Vertices.Num());
 //
-//        // ´òÓ¡ Mesh Êı¾İ×ÜÊı
+//        // æ‰“å° Mesh æ•°æ®æ€»æ•°
 //        UE_LOG(LogTemp, Log, TEXT("Vertices Count = %d, Triangles Count = %d, Normals Count = %d"),
 //            Vertices.Num(), Triangles.Num(), Normals.Num());
 //
@@ -333,7 +333,6 @@ void AHexCell::SetHighlighted(bool bHighlight)
 
     if (bIsHighlighted)
     {
-        UE_LOG(LogTemp, Log, TEXT("HexMetrics::OuterRadius = %f"), HexMetrics::OuterRadius);
         if (!HighlightMeshComponent)
         {
             HighlightMeshComponent = NewObject<UProceduralMeshComponent>(this, TEXT("HighlightMesh"));
@@ -345,7 +344,7 @@ void AHexCell::SetHighlighted(bool bHighlight)
             {
                 MaterialToUse = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/EngineMaterials/DefaultDecalMaterial"));
                 UE_LOG(LogTemp, Warning, TEXT("No HighlightMaterial set in BP_Cell for cell (%d, %d), using default material"),
-                    Coordinates.X, Coordinates.Z);
+                    Coordinates.X, Coordinates.Y);
             }
 
             UMaterialInstanceDynamic* DynamicMaterial = nullptr;
@@ -379,23 +378,59 @@ void AHexCell::SetHighlighted(bool bHighlight)
         TArray<FVector2D> UV0;
         TArray<FProcMeshTangent> Tangents;
 
-        FVector Center = GetPosition();
-        float HighlightOffsetZ = 0.0f; // µ÷µÍ¸ß¶È
-        float OutlineWidth = 0.2f; // Ãè±ß¿í¶È
+        // é€šè¿‡ Coordinates è®¡ç®—æ ¼å­çš„å±€éƒ¨åæ ‡ï¼ˆç›¸å¯¹äº AHexGridï¼‰
+        int32 X = Coordinates.X + (Coordinates.Z - (Coordinates.Z & 1)) / 2; // åç§»åæ ‡ X
+        int32 Z = Coordinates.Z; // åç§»åæ ‡ Z
+        const float SpacingFactor = 1.0f;
+        float PosX = (X + Z * 0.5f - Z / 2) * (HexMetrics::InnerRadius * 2.0f) * SpacingFactor;
+        float PosY = Z * (HexMetrics::OuterRadius * 1.5f) * SpacingFactor;
+        FVector LocalPosition(PosX, PosY, 0.0f);
 
-        UE_LOG(LogTemp, Log, TEXT("Center Position = %s, HighlightOffsetZ = %f"), *Center.ToString(), HighlightOffsetZ);
+        // è½¬æ¢ä¸ºä¸–ç•Œåæ ‡ï¼ˆåå‘ X å’Œ Y è½´ï¼‰
+        FVector WorldPosition = LocalPosition;
+        // è°ƒæ•´ä¸º (X, Y) -> (-Y, X)
+        float TempX = LocalPosition.X;
+        WorldPosition.X = -LocalPosition.Y;
+        WorldPosition.Y = LocalPosition.X;
 
-        // ¹¹Ôì¿ÕĞÄÃè±ß
+        // ç”±äº HighlightMeshComponent ä½¿ç”¨ KeepRelativeTransformï¼Œè½¬æ¢å› AHexCell çš„å±€éƒ¨åæ ‡
+        FVector Center = GetActorTransform().InverseTransformPosition(WorldPosition);
+
+        float HighlightOffsetZ = 0.0f; // è°ƒä½é«˜åº¦
+        float OutlineWidth = 0.2f; // æè¾¹å®½åº¦
+        float OuterRadius = HexMetrics::OuterRadius; // å…­è¾¹å½¢å¤–å¾„
+        float InnerRadius = OuterRadius * FMath::Sqrt(3.0f) / 2.0f; // å…­è¾¹å½¢å†…å¾„
+
+        UE_LOG(LogTemp, Log, TEXT("Coordinates = (%d, %d, %d), LocalPosition = %s, WorldPosition = %s, Center (Relative) = %s"),
+            Coordinates.X, Coordinates.Y, Coordinates.Z,
+            *LocalPosition.ToString(),
+            *WorldPosition.ToString(),
+            *Center.ToString());
+
+        // æ‰‹åŠ¨å®šä¹‰å…­è¾¹å½¢é¡¶ç‚¹ï¼ˆå°–é¡¶å¸ƒå±€ï¼ŒåŒ¹é…æ ¼å­æ’åˆ—æ–¹å‘ï¼‰
+        TArray<FVector> Corners;
+        Corners.SetNum(6);
+        // å°–é¡¶å¸ƒå±€çš„å…­è¾¹å½¢é¡¶ç‚¹ï¼ˆé¡ºæ—¶é’ˆï¼Œä»ä¸œåŒ—å¼€å§‹ï¼‰
+        Corners[0] = FVector(0.0f, OuterRadius, 0.0f);           // NE (å°–é¡¶)
+        Corners[1] = FVector(InnerRadius, OuterRadius / 2, 0.0f); // E
+        Corners[2] = FVector(InnerRadius, -OuterRadius / 2, 0.0f); // SE
+        Corners[3] = FVector(0.0f, -OuterRadius, 0.0f);          // SW
+        Corners[4] = FVector(-InnerRadius, -OuterRadius / 2, 0.0f); // W
+        Corners[5] = FVector(-InnerRadius, OuterRadius / 2, 0.0f);  // NW
+
+        // æ„é€ ç©ºå¿ƒæè¾¹
         for (int32 i = 0; i < 6; i++)
         {
-            FVector OuterCorner = Center + HexMetrics::Corners[i] * 1.0f; // ·Å´ó 5 ±¶
-            FVector InnerCorner = Center + HexMetrics::Corners[i] * (1.0f - OutlineWidth / HexMetrics::OuterRadius);
-            OuterCorner.Z += HighlightOffsetZ;
-            InnerCorner.Z += HighlightOffsetZ;
+            // å¤–é¡¶ç‚¹å’Œå†…é¡¶ç‚¹
+            FVector OuterCorner = Center + Corners[i];
+            FVector InnerCorner = Center + Corners[i] * (1.0f - OutlineWidth / OuterRadius);
 
             int32 NextI = (i + 1) % 6;
-            FVector NextOuterCorner = Center + HexMetrics::Corners[NextI] * 1.0f;
-            FVector NextInnerCorner = Center + HexMetrics::Corners[NextI] * (1.0f - OutlineWidth / HexMetrics::OuterRadius);
+            FVector NextOuterCorner = Center + Corners[NextI];
+            FVector NextInnerCorner = Center + Corners[NextI] * (1.0f - OutlineWidth / OuterRadius);
+
+            OuterCorner.Z += HighlightOffsetZ;
+            InnerCorner.Z += HighlightOffsetZ;
             NextOuterCorner.Z += HighlightOffsetZ;
             NextInnerCorner.Z += HighlightOffsetZ;
 
@@ -425,11 +460,6 @@ void AHexCell::SetHighlighted(bool bHighlight)
 
         UV0.Init(FVector2D(0, 0), Vertices.Num());
         Tangents.Init(FProcMeshTangent(1, 0, 0), Vertices.Num());
-
-        for (int32 i = 0; i < Vertices.Num(); i++)
-        {
-            UE_LOG(LogTemp, Log, TEXT("Vertex %d: %s"), i, *Vertices[i].ToString());
-        }
 
         HighlightMeshComponent->CreateMeshSection(0, Vertices, Triangles, Normals, UV0, VertexColors, Tangents, false);
         HighlightMeshComponent->SetVisibility(true);

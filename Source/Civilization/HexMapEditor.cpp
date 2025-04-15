@@ -429,7 +429,7 @@ void UHexMapEditor::MoveCameraForward(float AxisValue)
 void UHexMapEditor::AdjustCameraZoom(float Value)
 {
     //UE_LOG(LogTemp, Log, TEXT("AdjustCameraZoom called with Value=%f"), Value);
-    if (FMath::Abs(Value) < 0.01f) return; // 降低阈值，或直接移除
+    if (FMath::Abs(Value) < 0.01f) return;
     
     APlayerController* PC = GetWorld()->GetFirstPlayerController();
     if (PC && PC->GetPawn())
