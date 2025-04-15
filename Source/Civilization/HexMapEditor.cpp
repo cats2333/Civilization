@@ -68,9 +68,11 @@ void UHexMapEditor::BeginPlay()
                 Camera->SetOrthoNearClipPlane(-10000.0f);
                 Camera->RegisterComponent();
 
-                // ´òÓ¡ÉãÏñ»úÉèÖÃ
-                UE_LOG(LogTemp, Log, TEXT("Camera NearClip = %f, FarClip = %f"),
-                    Camera->OrthoNearClipPlane, Camera->OrthoFarClipPlane);
+                UE_LOG(LogTemp, Log, TEXT("Camera Location = %s, Rotation = %s, NearClip = %f, FarClip = %f"),
+                    *Camera->GetComponentLocation().ToString(),
+                    *Camera->GetComponentRotation().ToString(),
+                    Camera->OrthoNearClipPlane,
+                    Camera->OrthoFarClipPlane);
             }
             else
             {
