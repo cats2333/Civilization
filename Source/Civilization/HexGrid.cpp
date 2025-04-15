@@ -60,9 +60,20 @@ void AHexGrid::CreateCells()
         return;
     }
 
+    // 清空旧的 Chunks 和 Cells
+    for (AHexGridChunk* Chunk : Chunks)
+    {
+        if (Chunk && IsValid(Chunk))
+        {
+            Chunk->ClearCells();
+            Chunk->Destroy();
+        }
+    }
+    Chunks.Empty();
+
     for (AHexCell* Cell : Cells)
     {
-        if (Cell)
+        if (Cell && IsValid(Cell))
         {
             Cell->Destroy();
         }
@@ -72,12 +83,18 @@ void AHexGrid::CreateCells()
 
     const float SpacingFactor = 1.0f;
 
+    // 使用类成员 ChunkCountX 和 ChunkCountZ（如果存在）
+    ChunkCountX = (Width + HexMetrics::ChunkSizeX - 1) / HexMetrics::ChunkSizeX;
+    ChunkCountZ = (Height + HexMetrics::ChunkSizeZ - 1) / HexMetrics::ChunkSizeZ;
+    Chunks.SetNum(ChunkCountX * ChunkCountZ);
+
     for (int32 Z = 0, I = 0; Z < Height; Z++)
     {
         for (int32 X = 0; X < Width; X++)
         {
-            float PosX = (X + Z * 0.5f - Z / 2) * (HexMetrics::InnerRadius * 2.0f) * SpacingFactor;
-            float PosY = Z * (HexMetrics::OuterRadius * 1.5f) * SpacingFactor;
+            float PosX = X * (HexMetrics::InnerRadius * 2.0f) * SpacingFactor;
+            float Offset = (X % 2 == 0) ? 0.0f : (HexMetrics::OuterRadius * 1.5f / 2.0f);
+            float PosY = (Z * (HexMetrics::OuterRadius * 1.5f) + Offset) * SpacingFactor;
             FVector Position(PosX, PosY, 0.0f);
 
             AHexCell* Cell = GetWorld()->SpawnActor<AHexCell>(CellClass, Position, FRotator::ZeroRotator);
@@ -94,27 +111,27 @@ void AHexGrid::CreateCells()
 
                 if (Z > 0)
                 {
-                    if ((Z & 1) == 0)
+                    if ((X % 2) == 0)
                     {
-                        Cell->SetNeighbor(EHexDirection::SE, Cells[I - Width]);
+                        Cell->SetNeighbor(EHexDirection::SW, Cells[I - Width]);
                         if (X > 0)
                         {
-                            Cell->SetNeighbor(EHexDirection::SW, Cells[I - Width - 1]);
+                            Cell->SetNeighbor(EHexDirection::NW, Cells[I - Width - 1]);
                         }
                     }
                     else
                     {
-                        Cell->SetNeighbor(EHexDirection::SW, Cells[I - Width]);
+                        Cell->SetNeighbor(EHexDirection::NW, Cells[I - Width]);
                         if (X < Width - 1)
                         {
-                            Cell->SetNeighbor(EHexDirection::SE, Cells[I - Width + 1]);
+                            Cell->SetNeighbor(EHexDirection::SW, Cells[I - Width + 1]);
                         }
                     }
                 }
 
                 AddCellToChunk(X, Z, Cell);
                 I++;
-                UE_LOG(LogTemp, Log, TEXT("Spawned HexCell at (%d, %d)"), X, Z);
+                UE_LOG(LogTemp, Log, TEXT("Spawned HexCell at (%d, %d), Position=%s"), X, Z, *Position.ToString());
             }
             else
             {
@@ -123,7 +140,7 @@ void AHexGrid::CreateCells()
         }
     }
 
-    UE_LOG(LogTemp, Log, TEXT("Total Cells: %d"), Cells.Num());
+    UE_LOG(LogTemp, Log, TEXT("Total Cells: %d, Total Chunks: %d"), Cells.Num(), Chunks.Num());
 }
 
 void AHexGrid::TriangulateCells()
@@ -143,7 +160,7 @@ AHexCell* AHexGrid::GetCellByPosition(FVector Position)
     FHexCoordinates Coordinates = FHexCoordinates::FromPosition(LocalPosition);
     UE_LOG(LogTemp, Log, TEXT("Touched at (%d, %d, %d)"), Coordinates.X, Coordinates.Y, Coordinates.Z);
 
-    int32 OffsetX = Coordinates.X + (Coordinates.Z - (Coordinates.Z & 1)) / 2;
+    int32 OffsetX = Coordinates.X;
     int32 OffsetZ = Coordinates.Z;
 
     if (OffsetX < 0 || OffsetX >= Width || OffsetZ < 0 || OffsetZ >= Height)
@@ -219,14 +236,27 @@ void AHexGrid::AddCellToChunk(int32 X, int32 Z, AHexCell* Cell)
 {
     int32 ChunkX = X / HexMetrics::ChunkSizeX;
     int32 ChunkZ = Z / HexMetrics::ChunkSizeZ;
-    int32 ChunkIndex = ChunkX + ChunkZ * ChunkCountX;
+    int32 ChunkIndex = ChunkX + ChunkZ * ((Width + HexMetrics::ChunkSizeX - 1) / HexMetrics::ChunkSizeX);
 
-    if (Chunks.IsValidIndex(ChunkIndex))
+    AHexGridChunk* Chunk = Chunks[ChunkIndex];
+    if (!Chunk)
     {
-        AHexGridChunk* Chunk = Chunks[ChunkIndex];
-        int32 LocalX = X - ChunkX * HexMetrics::ChunkSizeX;
-        int32 LocalZ = Z - ChunkZ * HexMetrics::ChunkSizeZ;
-        int32 LocalIndex = LocalX + LocalZ * HexMetrics::ChunkSizeX;
-        Chunk->AddCell(LocalIndex, Cell);
+        Chunk = GetWorld()->SpawnActor<AHexGridChunk>(ChunkClass, FVector::ZeroVector, FRotator::ZeroRotator);
+        if (Chunk)
+        {
+            Chunk->Cells.SetNum(HexMetrics::ChunkSizeX * HexMetrics::ChunkSizeZ);
+            Chunks[ChunkIndex] = Chunk;
+            UE_LOG(LogTemp, Log, TEXT("Created new chunk at index %d"), ChunkIndex);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("Failed to spawn HexGridChunk at index %d"), ChunkIndex);
+            return;
+        }
     }
+
+    int32 LocalX = X % HexMetrics::ChunkSizeX;
+    int32 LocalZ = Z % HexMetrics::ChunkSizeZ;
+    int32 LocalIndex = LocalX + LocalZ * HexMetrics::ChunkSizeX;
+    Chunk->AddCell(LocalIndex, Cell);
 }

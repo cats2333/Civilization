@@ -5,39 +5,18 @@ FHexCoordinates FHexCoordinates::FromPosition(FVector Position)
 {
     const float SpacingFactor = 1.0f;
     float X = (Position.X / SpacingFactor) / (HexMetrics::InnerRadius * 2.0f);
-    float Y = -X;
-
-    float Offset = Position.Y / (HexMetrics::OuterRadius * 3.0f);
-    X -= Offset;
-    Y -= Offset;
-
-    UE_LOG(LogTemp, Log, TEXT("FromPosition: Position=(%s), Raw X=%f, Y=%f, Offset=%f"), *Position.ToString(), X, Y, Offset);
+    float Z = (Position.Y / SpacingFactor) / (HexMetrics::OuterRadius * 1.5f);
 
     int32 iX = FMath::RoundToInt(X);
-    int32 iY = FMath::RoundToInt(Y);
-    int32 iZ = FMath::RoundToInt(-X - Y);
+    float AdjustedY = Position.Y - ((iX % 2 == 0) ? 0.0f : (HexMetrics::OuterRadius * 1.5f / 2.0f));
+    Z = (AdjustedY / SpacingFactor) / (HexMetrics::OuterRadius * 1.5f);
 
-    if (iX + iY + iZ != 0)
-    {
-        float dX = FMath::Abs(X - iX);
-        float dY = FMath::Abs(Y - iY);
-        float dZ = FMath::Abs(-X - Y - iZ);
+    int32 iZ = FMath::RoundToInt(Z);
 
-        UE_LOG(LogTemp, Log, TEXT("Rounding deltas: dX=%f, dY=%f, dZ=%f"), dX, dY, dZ);
+    UE_LOG(LogTemp, Log, TEXT("FromPosition: Position=(%s), X=%f, Z=%f, iX=%d, iZ=%d"),
+        *Position.ToString(), X, Z, iX, iZ);
 
-        if (dX > dY && dX > dZ)
-        {
-            iX = -iY - iZ;
-        }
-        else if (dZ > dY)
-        {
-            iZ = -iX - iY;
-        }
-
-        UE_LOG(LogTemp, Log, TEXT("Adjusted coordinates: (%d, %d, %d)"), iX, iY, iZ);
-    }
-
-    return FHexCoordinates(iX, iZ);
+    return FHexCoordinates::FromOffsetCoordinates(iX, iZ);
 }
 
 FHexCoordinates::FHexCoordinates(int32 InX, int32 InZ)

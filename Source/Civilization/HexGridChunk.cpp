@@ -62,7 +62,6 @@ void AHexGridChunk::Refresh()
 void AHexGridChunk::TriangulateCells()
 {
     ClearMeshData();
-    //CellMaterials.Empty();
 
     for (AHexCell* Cell : Cells)
     {
@@ -80,7 +79,8 @@ void AHexGridChunk::TriangulateCells()
 
             TriangulateEdgeFan(Center, E, SRGBColor);
 
-            if (Direction <= EHexDirection::SE)
+            // 尖顶布局：只连接 E, SE, SW 方向（避免重复三角形）
+            if (Direction == EHexDirection::E || Direction == EHexDirection::SE || Direction == EHexDirection::SW)
             {
                 TriangulateConnection(Direction, Cell, E);
             }
@@ -88,22 +88,6 @@ void AHexGridChunk::TriangulateCells()
     }
 
     ApplyMesh();
-
-    /*for (AHexCell* Cell : Cells)
-    {
-        if (!Cell) continue;
-        UMaterialInstanceDynamic* DynMaterial = CellMaterials.FindRef(Cell);
-        if (DynMaterial)
-        {
-            HexMeshComponent->SetMaterial(0, DynMaterial);
-        }
-        else
-        {
-            UMaterialInstanceDynamic* DefaultDynMaterial = UMaterialInstanceDynamic::Create(DefaultMaterial, this);
-            DefaultDynMaterial->SetVectorParameterValue(FName("BaseColor"), Cell->Color);
-            HexMeshComponent->SetMaterial(0, DefaultDynMaterial);
-        }
-    }*/
 }
 
 void AHexGridChunk::AddTriangle(FVector V1, FVector V2, FVector V3)
@@ -205,6 +189,14 @@ void AHexGridChunk::TriangulateEdgeStrip(HexMetrics::FEdgeVertices E1, FColor C1
     AddQuadColor(C1, C2);
 }
 
+void AHexGridChunk::ClearCells()
+{
+    for (AHexCell*& Cell : Cells)
+    {
+        Cell = nullptr;
+    }
+}
+
 void AHexGridChunk::TriangulateConnection(EHexDirection Direction, AHexCell* Cell, HexMetrics::FEdgeVertices E1)
 {
     AHexCell* Neighbor = Cell->GetNeighbor(Direction);
@@ -223,8 +215,9 @@ void AHexGridChunk::TriangulateConnection(EHexDirection Direction, AHexCell* Cel
         TriangulateEdgeStrip(E1, Cell->Color.ToFColor(true), E2, Neighbor->Color.ToFColor(true));
     }
 
+    // 尖顶布局：调整角点连接
     AHexCell* NextNeighbor = Cell->GetNeighbor(static_cast<EHexDirection>((static_cast<int32>(Direction) + 1) % 6));
-    if (Direction <= EHexDirection::E && NextNeighbor)
+    if (Direction == EHexDirection::E || Direction == EHexDirection::SE)
     {
         FVector V5 = E1.V5 + HexMetrics::GetBridge(static_cast<EHexDirection>((static_cast<int32>(Direction) + 1) % 6));
         V5.Z = NextNeighbor->GetPosition().Z;

@@ -10,8 +10,8 @@ const float HexMetrics::HorizontalTerraceStepSize = 1.0f / TerraceSteps;
 const float HexMetrics::VerticalTerraceStepSize = 1.0f / (TerracesPerSlope + 1);
 const float HexMetrics::StreamBedElevationOffset = 0.f;//-1
 
-float HexMetrics::CellPerturbStrength = 0.5f; // 1.5 is normal
-float HexMetrics::NoiseScale = 0.01f; // 0.01 normal
+float HexMetrics::CellPerturbStrength = 0.f; // 0.5 is normal
+float HexMetrics::NoiseScale = 0.f; // 0.01 normal
 
 UTexture2D* HexMetrics::NoiseSource = nullptr;TArray<FColor> HexMetrics::NoiseData;TArray<FVector> HexMetrics::Corners = {
     FVector(0.0f, OuterRadius, 0.0f),           // NE
@@ -23,8 +23,36 @@ UTexture2D* HexMetrics::NoiseSource = nullptr;TArray<FColor> HexMetrics::NoiseDa
 };
 FVector HexMetrics::GetBridge(EHexDirection Direction)
 {
-    return (Corners[static_cast<int32>(Direction)] + Corners[(static_cast<int32>(Direction) + 1) % 6]) * BlendFactor;
+    int32 DirIndex = static_cast<int32>(Direction);
+    int32 NextDirIndex = (DirIndex + 1) % 6;
 
+    // 基础桥接向量（基于 Corners）
+    FVector Bridge = (Corners[DirIndex] + Corners[NextDirIndex]) * BlendFactor;
+
+    // 尖顶布局的格子间距
+    switch (Direction)
+    {
+    case EHexDirection::NE:
+    case EHexDirection::SW:
+        Bridge.X += InnerRadius * 2.0f; // 水平方向移动一列
+        Bridge.Y += (DirIndex == 0) ? (OuterRadius * 1.5f / 2.0f) : -(OuterRadius * 1.5f / 2.0f); // 奇数列偏移
+        break;
+    case EHexDirection::E:
+        Bridge.Y -= OuterRadius * 1.5f; // 垂直方向移动一行
+        break;
+    case EHexDirection::W:
+        Bridge.Y -= OuterRadius * 1.5f; // 垂直方向移动一行
+        break;
+    case EHexDirection::NW:
+    case EHexDirection::SE:
+        Bridge.X -= InnerRadius * 2.0f; // 水平方向移动一列
+        Bridge.Y += (DirIndex == 5) ? (OuterRadius * 1.5f / 2.0f) : -(OuterRadius * 1.5f / 2.0f); // 奇数列偏移
+        break;
+    default:
+        break;
+    }
+
+    return Bridge;
 }
 HexMetrics::EHexEdgeType HexMetrics::GetEdgeType(int32 Elevation1, int32 Elevation2)
 {
