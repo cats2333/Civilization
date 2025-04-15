@@ -22,6 +22,9 @@ public:
     UPROPERTY()
     AHexGridChunk* Chunk;
 
+    UPROPERTY()
+    TArray<FVector> PerturbedCorners; // 存储六边形的 6 个顶点（经过扰动）
+
     void SetupCell(int32 X, int32 Z, const FVector& Position);
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Hex Cell")

@@ -386,12 +386,10 @@ void AHexCell::SetHighlighted(bool bHighlight)
         float PosY = Z * (HexMetrics::OuterRadius * 1.5f) * SpacingFactor;
         FVector LocalPosition(PosX, PosY, 0.0f);
 
-        // 转换为世界坐标（反向 X 和 Y 轴）
+        // 转换为世界坐标，调整为 (X, Y) -> (X, Y)
         FVector WorldPosition = LocalPosition;
-        // 调整为 (X, Y) -> (-Y, X)
-        float TempX = LocalPosition.X;
-        WorldPosition.X = -LocalPosition.Y;
-        WorldPosition.Y = LocalPosition.X;
+        WorldPosition.X = LocalPosition.X;
+        WorldPosition.Y = LocalPosition.Y;
 
         // 由于 HighlightMeshComponent 使用 KeepRelativeTransform，转换回 AHexCell 的局部坐标
         FVector Center = GetActorTransform().InverseTransformPosition(WorldPosition);
@@ -399,7 +397,6 @@ void AHexCell::SetHighlighted(bool bHighlight)
         float HighlightOffsetZ = 0.0f; // 调低高度
         float OutlineWidth = 0.2f; // 描边宽度
         float OuterRadius = HexMetrics::OuterRadius; // 六边形外径
-        float InnerRadius = OuterRadius * FMath::Sqrt(3.0f) / 2.0f; // 六边形内径
 
         UE_LOG(LogTemp, Log, TEXT("Coordinates = (%d, %d, %d), LocalPosition = %s, WorldPosition = %s, Center (Relative) = %s"),
             Coordinates.X, Coordinates.Y, Coordinates.Z,
@@ -407,32 +404,46 @@ void AHexCell::SetHighlighted(bool bHighlight)
             *WorldPosition.ToString(),
             *Center.ToString());
 
-        // 手动定义六边形顶点（尖顶布局，匹配格子排列方向）
-        TArray<FVector> Corners;
-        Corners.SetNum(6);
-        // 尖顶布局的六边形顶点（顺时针，从东北开始）
-        Corners[0] = FVector(0.0f, OuterRadius, 0.0f);           // NE (尖顶)
-        Corners[1] = FVector(InnerRadius, OuterRadius / 2, 0.0f); // E
-        Corners[2] = FVector(InnerRadius, -OuterRadius / 2, 0.0f); // SE
-        Corners[3] = FVector(0.0f, -OuterRadius, 0.0f);          // SW
-        Corners[4] = FVector(-InnerRadius, -OuterRadius / 2, 0.0f); // W
-        Corners[5] = FVector(-InnerRadius, OuterRadius / 2, 0.0f);  // NW
+        // 使用存储的扰动顶点
+        TArray<FVector> Corners = PerturbedCorners;
+        if (Corners.Num() != 6)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("PerturbedCorners not initialized for cell (%d, %d), falling back to default corners"),
+                Coordinates.X, Coordinates.Z);
+            float InnerRadius = OuterRadius * FMath::Sqrt(3.0f) / 2.0f; // 六边形内径
+            Corners.SetNum(6);
+            Corners[0] = FVector(0.0f, OuterRadius, 0.0f);           // NE (尖顶)
+            Corners[1] = FVector(InnerRadius, OuterRadius / 2, 0.0f); // E
+            Corners[2] = FVector(InnerRadius, -OuterRadius / 2, 0.0f); // SE
+            Corners[3] = FVector(0.0f, -OuterRadius, 0.0f);          // SW
+            Corners[4] = FVector(-InnerRadius, -OuterRadius / 2, 0.0f); // W
+            Corners[5] = FVector(-InnerRadius, OuterRadius / 2, 0.0f);  // NW
+
+            for (int32 i = 0; i < 6; i++)
+            {
+                Corners[i] = Center + Corners[i];
+            }
+        }
 
         // 构造空心描边
         for (int32 i = 0; i < 6; i++)
         {
-            // 外顶点和内顶点
-            FVector OuterCorner = Center + Corners[i];
-            FVector InnerCorner = Center + Corners[i] * (1.0f - OutlineWidth / OuterRadius);
+            // 外顶点
+            FVector OuterCorner = Corners[i];
+            // 计算内顶点（向中心方向偏移）
+            FVector DirectionToCenter = (Center - OuterCorner).GetSafeNormal();
+            FVector InnerCorner = OuterCorner + DirectionToCenter * OutlineWidth;
 
             int32 NextI = (i + 1) % 6;
-            FVector NextOuterCorner = Center + Corners[NextI];
-            FVector NextInnerCorner = Center + Corners[NextI] * (1.0f - OutlineWidth / OuterRadius);
+            FVector NextOuterCorner = Corners[NextI];
+            FVector NextDirectionToCenter = (Center - NextOuterCorner).GetSafeNormal();
+            FVector NextInnerCorner = NextOuterCorner + NextDirectionToCenter * OutlineWidth;
 
-            OuterCorner.Z += HighlightOffsetZ;
-            InnerCorner.Z += HighlightOffsetZ;
-            NextOuterCorner.Z += HighlightOffsetZ;
-            NextInnerCorner.Z += HighlightOffsetZ;
+            // 调整 Z 坐标
+            OuterCorner.Z = HighlightOffsetZ;
+            InnerCorner.Z = HighlightOffsetZ;
+            NextOuterCorner.Z = HighlightOffsetZ;
+            NextInnerCorner.Z = HighlightOffsetZ;
 
             int32 VertexIndex = Vertices.Num();
             Vertices.Add(OuterCorner);
@@ -456,6 +467,12 @@ void AHexCell::SetHighlighted(bool bHighlight)
             Triangles.Add(VertexIndex + 1);
             Triangles.Add(VertexIndex + 3);
             Triangles.Add(VertexIndex + 2);
+
+            // 添加日志，记录顶点位置
+            UE_LOG(LogTemp, Log, TEXT("Highlight Vertex %d (Outer): %s"), VertexIndex, *OuterCorner.ToString());
+            UE_LOG(LogTemp, Log, TEXT("Highlight Vertex %d (Inner): %s"), VertexIndex + 1, *InnerCorner.ToString());
+            UE_LOG(LogTemp, Log, TEXT("Highlight Vertex %d (Next Outer): %s"), VertexIndex + 2, *NextOuterCorner.ToString());
+            UE_LOG(LogTemp, Log, TEXT("Highlight Vertex %d (Next Inner): %s"), VertexIndex + 3, *NextInnerCorner.ToString());
         }
 
         UV0.Init(FVector2D(0, 0), Vertices.Num());

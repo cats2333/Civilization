@@ -81,7 +81,6 @@ HexMetrics::EHexEdgeType HexMetrics::GetEdgeType(int32 Elevation1, int32 Elevati
     Position.X += (Sample.X * 2.0f - 1.0f) * CellPerturbStrength;
     Position.Y += (Sample.Y * 2.0f - 1.0f) * CellPerturbStrength;
     return Position;
-
 }
 
 FVector HexMetrics::TerraceLerp(FVector A, FVector B, int32 Step)

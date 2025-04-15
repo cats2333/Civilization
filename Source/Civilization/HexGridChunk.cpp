@@ -62,7 +62,6 @@ void AHexGridChunk::Refresh()
 void AHexGridChunk::TriangulateCells()
 {
     ClearMeshData();
-    //CellMaterials.Empty();
 
     for (AHexCell* Cell : Cells)
     {
@@ -70,6 +69,20 @@ void AHexGridChunk::TriangulateCells()
         FVector Center = Cell->GetPosition();
         FColor SRGBColor = Cell->Color.ToFColor(true);
 
+        // 计算并存储扰动后的顶点（用于高亮 Mesh）
+        TArray<FVector> CellCorners;
+        CellCorners.SetNum(6);
+        for (int32 i = 0; i < 6; i++)
+        {
+            EHexDirection Direction = static_cast<EHexDirection>(i);
+            FVector Corner = Center + HexMetrics::GetFirstSolidCorner(Direction);
+            CellCorners[i] = HexMetrics::Perturb(Corner); // 应用扰动
+            UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d) Corner %d: %s"),
+                Cell->Coordinates.X, Cell->Coordinates.Z, i, *CellCorners[i].ToString());
+        }
+        Cell->PerturbedCorners = CellCorners; // 存储到 AHexCell
+
+        // 使用原始逻辑生成格子 Mesh（确保顶点共享）
         for (int32 i = 0; i < 6; i++)
         {
             EHexDirection Direction = static_cast<EHexDirection>(i);
@@ -88,22 +101,6 @@ void AHexGridChunk::TriangulateCells()
     }
 
     ApplyMesh();
-
-    /*for (AHexCell* Cell : Cells)
-    {
-        if (!Cell) continue;
-        UMaterialInstanceDynamic* DynMaterial = CellMaterials.FindRef(Cell);
-        if (DynMaterial)
-        {
-            HexMeshComponent->SetMaterial(0, DynMaterial);
-        }
-        else
-        {
-            UMaterialInstanceDynamic* DefaultDynMaterial = UMaterialInstanceDynamic::Create(DefaultMaterial, this);
-            DefaultDynMaterial->SetVectorParameterValue(FName("BaseColor"), Cell->Color);
-            HexMeshComponent->SetMaterial(0, DefaultDynMaterial);
-        }
-    }*/
 }
 
 void AHexGridChunk::AddTriangle(FVector V1, FVector V2, FVector V3)
