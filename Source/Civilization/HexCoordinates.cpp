@@ -1,14 +1,12 @@
 #include "HexCoordinates.h"
 #include "HexMetrics.h"
 
-FHexCoordinates FHexCoordinates::FromPosition(FVector Position)
+FHexCoordinates FHexCoordinates::FromPosition(FVector Position, int32 GridHeight, float SpacingFactor)
 {
-    const float SpacingFactor = 1.0f;
-
     float OldPosX = Position.X;
     float OldPosY = Position.Y;
 
-    float Z = (OldPosY / (HexMetrics::OuterRadius * 1.5f * SpacingFactor)) + (15 - 1) / 2.0f;
+    float Z = (OldPosY / (HexMetrics::OuterRadius * 1.5f * SpacingFactor)) + (GridHeight - 1) / 2.0f;
     float TempX = OldPosX / (HexMetrics::InnerRadius * 2.0f * SpacingFactor);
     float X = TempX - (Z * 0.5f - Z / 2);
 

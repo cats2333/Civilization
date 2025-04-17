@@ -140,22 +140,24 @@ void UHexMapEditor::HandleInput()
     FHitResult HitResult;
     if (GetWorld()->LineTraceSingleByChannel(HitResult, WorldPos, WorldPos + WorldDir * 10000.f, ECC_Visibility))
     {
+        UE_LOG(LogTemp, Log, TEXT("HandleInput: Clicked at WorldPos=(%s), Hit at (%s)"),
+            *WorldPos.ToString(), *HitResult.Location.ToString());
         AHexCell* CurrentCell = HexGrid->GetCellByPosition(HitResult.Location);
-        UE_LOG(LogTemp, Log, TEXT("HandleInput: Hit at (%f, %f, %f), Cell=%s"),
-            HitResult.Location.X, HitResult.Location.Y, HitResult.Location.Z,
-            CurrentCell ? *GetNameSafe(CurrentCell) : TEXT("nullptr"));
         if (CurrentCell)
         {
+            UE_LOG(LogTemp, Log, TEXT("Hit Cell: Coordinates=(%d, %d, %d), Position=(%s)"),
+                CurrentCell->Coordinates.X, CurrentCell->Coordinates.Y, CurrentCell->Coordinates.Z,
+                *CurrentCell->GetActorLocation().ToString());
             EditCells(CurrentCell);
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("No cell found at hit position!"));
+            UE_LOG(LogTemp, Warning, TEXT("No cell found at hit position (%s)!"), *HitResult.Location.ToString());
         }
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("Line trace failed!"));
+        UE_LOG(LogTemp, Warning, TEXT("Line trace failed from (%s)!"), *WorldPos.ToString());
     }
 }
 

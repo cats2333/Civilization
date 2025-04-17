@@ -20,8 +20,9 @@ public:
 
     FHexCoordinates(int32 InX = 0, int32 InZ = 0);
 
+    static FHexCoordinates FromPosition(FVector Position, int32 GridHeight, float SpacingFactor = 1.0f);
     static FHexCoordinates FromOffsetCoordinates(int32 OffsetX, int32 OffsetZ);
-    static FHexCoordinates FromPosition(FVector Position);
+    //static FHexCoordinates FromPosition(FVector Position);
     FString ToString() const;
     FString ToStringOnSeparateLines() const;
 };

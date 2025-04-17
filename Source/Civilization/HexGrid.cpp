@@ -141,7 +141,7 @@ void AHexGrid::TriangulateCells()
 AHexCell* AHexGrid::GetCellByPosition(FVector Position)
 {
     FVector LocalPosition = GetActorTransform().InverseTransformPosition(Position);
-    FHexCoordinates Coordinates = FHexCoordinates::FromPosition(LocalPosition);
+    FHexCoordinates Coordinates = FHexCoordinates::FromPosition(LocalPosition, Height, 1.0f);
     UE_LOG(LogTemp, Log, TEXT("Touched at (%d, %d, %d)"), Coordinates.X, Coordinates.Y, Coordinates.Z);
 
     int32 OffsetX = Coordinates.X + (Coordinates.Z - (Coordinates.Z & 1)) / 2;

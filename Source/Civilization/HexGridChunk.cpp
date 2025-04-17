@@ -77,8 +77,8 @@ void AHexGridChunk::TriangulateCells()
             EHexDirection Direction = static_cast<EHexDirection>(i);
             FVector Corner = Center + HexMetrics::GetFirstSolidCorner(Direction);
             CellCorners[i] = HexMetrics::Perturb(Corner);
-            UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d) Corner %d (%s): %s"),
-                Cell->Coordinates.X, Cell->Coordinates.Z, i, *UEnum::GetValueAsString(Direction), *CellCorners[i].ToString());
+            //UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d) Corner %d (%s): %s"),
+            //    Cell->Coordinates.X, Cell->Coordinates.Z, i, *UEnum::GetValueAsString(Direction), *CellCorners[i].ToString());
         }
         Cell->PerturbedCorners = CellCorners;
 
