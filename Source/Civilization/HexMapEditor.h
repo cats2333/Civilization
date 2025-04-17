@@ -3,6 +3,7 @@
 #include "Components/ActorComponent.h"
 #include "HexGrid.h"
 #include "HexCell.h"
+#include "Math/Vector.h" 
 #include "HexMapEditor.generated.h"
 
 UENUM(BlueprintType)

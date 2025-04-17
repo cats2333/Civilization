@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "HexMetrics.h"
 #include "HexDirection.h"
+#include "Math/Vector.h" 
 #include "HexGrid.generated.h"
 
 class AHexCell;

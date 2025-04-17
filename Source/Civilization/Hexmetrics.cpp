@@ -1,7 +1,9 @@
 #include "HexMetrics.h"
+#include "Math/Vector.h"
+#include "Math/Vector4.h"
 #include "Engine/Texture2D.h"
 
-const float HexMetrics::OuterRadius = 1.0f;
+const float HexMetrics::OuterRadius = 10.0f;
 const float HexMetrics::InnerRadius = OuterRadius * FMath::Sqrt(3.0f) / 2.0f;
 const float HexMetrics::SolidFactor = 0.75f;
 const float HexMetrics::BlendFactor = 1.0f - SolidFactor;
@@ -13,14 +15,45 @@ const float HexMetrics::StreamBedElevationOffset = 0.f;//-1
 float HexMetrics::CellPerturbStrength = 0.5f; // 1.5 is normal
 float HexMetrics::NoiseScale = 0.01f; // 0.01 normal
 
-UTexture2D* HexMetrics::NoiseSource = nullptr;TArray<FColor> HexMetrics::NoiseData;TArray<FVector> HexMetrics::Corners = {
-    FVector(0.0f, OuterRadius, 0.0f),           // NE
-    FVector(InnerRadius, OuterRadius / 2, 0.0f), // E
-    FVector(InnerRadius, -OuterRadius / 2, 0.0f), // SE
-    FVector(0.0f, -OuterRadius, 0.0f),          // SW
-    FVector(-InnerRadius, -OuterRadius / 2, 0.0f), // W
-    FVector(-InnerRadius, OuterRadius / 2, 0.0f)  // NW
+UTexture2D* HexMetrics::NoiseSource = nullptr;TArray<FColor> HexMetrics::NoiseData;
+//TArray<FVector> HexMetrics::Corners = {
+//    FVector(-OuterRadius / 2, -InnerRadius, 0.0f), // N (ԭ NW)
+//    FVector(-OuterRadius, 0.0f, 0.0f),             // E (ԭ NE)
+//    FVector(-OuterRadius / 2, InnerRadius, 0.0f),  // SE (ԭ E)
+//    FVector(OuterRadius / 2, InnerRadius, 0.0f),   // S (ԭ SE)
+//    FVector(OuterRadius, 0.0f, 0.0f),              // W (ԭ SW)
+//    FVector(OuterRadius / 2, -InnerRadius, 0.0f)   // NW (ԭ W)
+//};
+
+TArray<FVector> HexMetrics::Corners = {
+    FVector(OuterRadius / 2, InnerRadius, 0.0f),   // NE (ԭ NW)
+    FVector(OuterRadius, 0.0f, 0.0f),              // E (ԭ NE)
+    FVector(OuterRadius / 2, -InnerRadius, 0.0f),  // SE (ԭ E)
+    FVector(-OuterRadius / 2, -InnerRadius, 0.0f), // SW (ԭ SE)
+    FVector(-OuterRadius, 0.0f, 0.0f),             // W (ԭ SW)
+    FVector(-OuterRadius / 2, InnerRadius, 0.0f)   // NW (ԭ W)
 };
+
+FVector HexMetrics::GetFirstSolidCorner(EHexDirection Direction)
+{
+    return Corners[static_cast<int32>(Direction)] * SolidFactor;
+}
+
+FVector HexMetrics::GetSecondSolidCorner(EHexDirection Direction)
+{
+    return Corners[static_cast<int32>(Direction) + 1 < Corners.Num() ? static_cast<int32>(Direction) + 1 : 0] * SolidFactor;
+}
+
+FVector HexMetrics::GetFirstCorner(EHexDirection Direction)
+{
+    return Corners[static_cast<int32>(Direction)];
+}
+
+FVector HexMetrics::GetSecondCorner(EHexDirection Direction)
+{
+    return Corners[static_cast<int32>(Direction) + 1 < Corners.Num() ? static_cast<int32>(Direction) + 1 : 0];
+}
+
 FVector HexMetrics::GetBridge(EHexDirection Direction)
 {
     return (Corners[static_cast<int32>(Direction)] + Corners[(static_cast<int32>(Direction) + 1) % 6]) * BlendFactor;
@@ -109,4 +142,7 @@ HexMetrics::FEdgeVertices HexMetrics::TerraceLerp(FEdgeVertices A, FEdgeVertices
     return Result;
 }
 
-
+EHexDirection HexMetrics::Opposite(EHexDirection Direction)
+{
+    return static_cast<EHexDirection>((static_cast<int32>(Direction) + 3) % 6);
+}

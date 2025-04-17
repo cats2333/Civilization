@@ -69,20 +69,19 @@ void AHexGridChunk::TriangulateCells()
         FVector Center = Cell->GetPosition();
         FColor SRGBColor = Cell->Color.ToFColor(true);
 
-        // 计算并存储扰动后的顶点（用于高亮 Mesh）
+        // 计算并存储扰动后的顶点
         TArray<FVector> CellCorners;
         CellCorners.SetNum(6);
         for (int32 i = 0; i < 6; i++)
         {
             EHexDirection Direction = static_cast<EHexDirection>(i);
             FVector Corner = Center + HexMetrics::GetFirstSolidCorner(Direction);
-            CellCorners[i] = HexMetrics::Perturb(Corner); // 应用扰动
-            UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d) Corner %d: %s"),
-                Cell->Coordinates.X, Cell->Coordinates.Z, i, *CellCorners[i].ToString());
+            CellCorners[i] = HexMetrics::Perturb(Corner);
+            UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d) Corner %d (%s): %s"),
+                Cell->Coordinates.X, Cell->Coordinates.Z, i, *UEnum::GetValueAsString(Direction), *CellCorners[i].ToString());
         }
-        Cell->PerturbedCorners = CellCorners; // 存储到 AHexCell
+        Cell->PerturbedCorners = CellCorners;
 
-        // 使用原始逻辑生成格子 Mesh（确保顶点共享）
         for (int32 i = 0; i < 6; i++)
         {
             EHexDirection Direction = static_cast<EHexDirection>(i);

@@ -1,27 +1,41 @@
 #pragma once
+
 #include "CoreMinimal.h"
+#include "UObject/NoExportTypes.h"
+#include "Math/Vector.h" 
 #include "HexDirection.h"
 
-class HexMetrics
+class UTexture2D;
+
+struct HexMetrics
 {
-public:
+    static const int32 ChunkSizeX = 5;
+    static const int32 ChunkSizeZ = 5;
+    static const float OuterRadius;
+    static const float InnerRadius;
+    static const float SolidFactor;
+    static const float BlendFactor;
+    static const float ElevationStep;
+    static const int32 TerracesPerSlope = 2;
+    static const int32 TerraceSteps = TerracesPerSlope * 2 + 1;
+    static const float HorizontalTerraceStepSize;
+    static const float VerticalTerraceStepSize;
+    static const float StreamBedElevationOffset;
+
+    static float CellPerturbStrength;
+    static float NoiseScale;
+
+    static UTexture2D* NoiseSource;
     static TArray<FColor> NoiseData;
 
-    enum class EHexEdgeType
-    {
-        Flat,
-        Slope,
-        Cliff
-    };
-
-    static EHexEdgeType GetEdgeType(int32 Elevation1, int32 Elevation2);
+    // 调整后的顶点，模拟顺时针 90 度旋转
+    static TArray<FVector> Corners;
 
     struct FEdgeVertices
     {
         FVector V1, V2, V3, V4, V5;
-
-        FEdgeVertices() : V1(0, 0, 0), V2(0, 0, 0), V3(0, 0, 0), V4(0, 0, 0), V5(0, 0, 0) {}
-
+        FEdgeVertices() {}
+        //FEdgeVertices(FVector InV1, FVector InV5, float OuterScale = 0.0f);
         FEdgeVertices(FVector Corner1, FVector Corner2)
         {
             V1 = Corner1;
@@ -41,56 +55,26 @@ public:
         }
     };
 
+    enum class EHexEdgeType
+    {
+        Flat,
+        Slope,
+        Cliff
+    };
 
-    static const float OuterRadius;
-    static const float InnerRadius;
-
-    static const int32 ChunkSizeX = 5;
-    static const int32 ChunkSizeZ = 5;
-
-    static const float SolidFactor;
-    static const float BlendFactor;
-
-    static const float ElevationStep;
-    static const float StreamBedElevationOffset;
-
-    static const int32 TerracesPerSlope = 2;
-    static const int32 TerraceSteps = TerracesPerSlope * 2 + 1;
-    static const float HorizontalTerraceStepSize;
-    static const float VerticalTerraceStepSize;
-
-    static TArray<FVector> Corners;
-
-    static UTexture2D* NoiseSource;
-    static float CellPerturbStrength;
-    static float NoiseScale;
-
+    static FVector GetFirstSolidCorner(EHexDirection Direction);
+    static FVector GetSecondSolidCorner(EHexDirection Direction);
+    static FVector GetFirstCorner(EHexDirection Direction);
+    static FVector GetSecondCorner(EHexDirection Direction);
+    static FVector GetBridge(EHexDirection Direction);
+    static EHexEdgeType GetEdgeType(int32 Elevation1, int32 Elevation2);
     static FVector4 SampleNoise(FVector Position);
     static FVector Perturb(FVector Position);
-
-    static EHexDirection Opposite(EHexDirection Direction)
-    {
-        int32 DirIndex = static_cast<int32>(Direction);
-        return DirIndex < 3 ? static_cast<EHexDirection>(DirIndex + 3) : static_cast<EHexDirection>(DirIndex - 3);
-    }
-
-    static EHexDirection Next(EHexDirection Direction)
-    {
-        return static_cast<EHexDirection>((static_cast<int32>(Direction) + 1) % 6);
-    }
-
-    static EHexDirection Previous(EHexDirection Direction)
-    {
-        return static_cast<EHexDirection>((static_cast<int32>(Direction) - 1 + 6) % 6);
-    }
-
-    static FVector GetFirstCorner(EHexDirection Direction) { return Corners[static_cast<int32>(Direction)]; }
-    static FVector GetSecondCorner(EHexDirection Direction) { return Corners[(static_cast<int32>(Direction) + 1) % 6]; }
-    static FVector GetFirstSolidCorner(EHexDirection Direction) { return Corners[static_cast<int32>(Direction)] * SolidFactor; }
-    static FVector GetSecondSolidCorner(EHexDirection Direction) { return Corners[(static_cast<int32>(Direction) + 1) % 6] * SolidFactor; }
-    static FVector GetBridge(EHexDirection Direction);
-
     static FVector TerraceLerp(FVector A, FVector B, int32 Step);
     static FLinearColor TerraceLerp(FLinearColor A, FLinearColor B, int32 Step);
     static FEdgeVertices TerraceLerp(FEdgeVertices A, FEdgeVertices B, int32 Step);
+
+    static EHexDirection Opposite(EHexDirection Direction);
 };
+
+// 初始化 Corners

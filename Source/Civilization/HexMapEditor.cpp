@@ -1,6 +1,7 @@
 #include "HexMapEditor.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
+#include "Math/Vector.h" 
 #include "Camera/CameraComponent.h"
 
 #define LOG_TO_FILE(Category, Verbosity, Format, ...) \

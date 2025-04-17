@@ -2,6 +2,7 @@
 #include "HexCell.h"
 #include "HexMetrics.h"
 #include "HexCoordinates.h"
+#include "Math/Vector.h" 
 #include "HexGridChunk.h"
 
 AHexGrid::AHexGrid()
@@ -76,8 +77,10 @@ void AHexGrid::CreateCells()
     {
         for (int32 X = 0; X < Width; X++)
         {
-            float PosX = (X + Z * 0.5f - Z / 2) * (HexMetrics::InnerRadius * 2.0f) * SpacingFactor;
-            float PosY = Z * (HexMetrics::OuterRadius * 1.5f) * SpacingFactor;
+            float OldPosX = (X + Z * 0.5f - Z / 2) * (HexMetrics::InnerRadius * 2.0f) * SpacingFactor;
+            float OldPosY = (Z - (Height - 1) / 2.0f) * (HexMetrics::OuterRadius * 1.5f) * SpacingFactor;
+            float PosX = OldPosX; // ÐÞÕý·½Ïò
+            float PosY = OldPosY;
             FVector Position(PosX, PosY, 0.0f);
 
             AHexCell* Cell = GetWorld()->SpawnActor<AHexCell>(CellClass, Position, FRotator::ZeroRotator);
@@ -87,38 +90,36 @@ void AHexGrid::CreateCells()
                 Cell->SetElevation(0);
                 Cells[I] = Cell;
 
+                UE_LOG(LogTemp, Log, TEXT("Created Cell: GridCoord=(%d, %d), WorldPosition=(%f, %f, %f)"),
+                    X, Z, Position.X, Position.Y, Position.Z);
+
                 if (X > 0)
                 {
-                    Cell->SetNeighbor(EHexDirection::W, Cells[I - 1]);
+                    Cell->SetNeighbor(EHexDirection::NW, Cells[I - 1]);
                 }
 
                 if (Z > 0)
                 {
                     if ((Z & 1) == 0)
                     {
-                        Cell->SetNeighbor(EHexDirection::SE, Cells[I - Width]);
+                        Cell->SetNeighbor(EHexDirection::SW, Cells[I - Width]);
                         if (X > 0)
                         {
-                            Cell->SetNeighbor(EHexDirection::SW, Cells[I - Width - 1]);
+                            Cell->SetNeighbor(EHexDirection::W, Cells[I - Width - 1]);
                         }
                     }
                     else
                     {
-                        Cell->SetNeighbor(EHexDirection::SW, Cells[I - Width]);
+                        Cell->SetNeighbor(EHexDirection::W, Cells[I - Width]);
                         if (X < Width - 1)
                         {
-                            Cell->SetNeighbor(EHexDirection::SE, Cells[I - Width + 1]);
+                            Cell->SetNeighbor(EHexDirection::SW, Cells[I - Width + 1]);
                         }
                     }
                 }
 
                 AddCellToChunk(X, Z, Cell);
                 I++;
-                UE_LOG(LogTemp, Log, TEXT("Spawned HexCell at (%d, %d)"), X, Z);
-            }
-            else
-            {
-                UE_LOG(LogTemp, Error, TEXT("Failed to spawn HexCell at (%d, %d). CellClass: %s"), X, Z, *GetNameSafe(CellClass));
             }
         }
     }
@@ -166,18 +167,19 @@ AHexCell* AHexGrid::GetCellByPosition(FVector Position)
 AHexCell* AHexGrid::GetCellByCoordinates(FHexCoordinates Coordinates)
 {
     int32 Z = Coordinates.Z;
-    if (Z < 0 || Z >= CellCountZ)
+    int32 X = Coordinates.X;
+
+    UE_LOG(LogTemp, Log, TEXT("GetCell: Input Coordinates=(%d, %d), Adjusted X=%d, Z=%d"),
+        Coordinates.X, Coordinates.Z, X, Z);
+
+    if (X < 0 || X >= Width || Z < 0 || Z >= Height)
     {
+        UE_LOG(LogTemp, Warning, TEXT("Coordinates (%d, %d) out of bounds!"), X, Z);
         return nullptr;
     }
 
-    int32 X = Coordinates.X + Z / 2;
-    if (X < 0 || X >= CellCountX)
-    {
-        return nullptr;
-    }
-
-    int32 Index = X + Z * CellCountX;
+    int32 Index = X + Z * Width;
+    UE_LOG(LogTemp, Log, TEXT("Found cell at index %d, coordinates (%d, %d)"), Index, X, Z);
     return Cells[Index];
 }
 
