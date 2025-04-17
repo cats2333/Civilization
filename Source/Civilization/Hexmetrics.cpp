@@ -12,8 +12,8 @@ const float HexMetrics::HorizontalTerraceStepSize = 1.0f / TerraceSteps;
 const float HexMetrics::VerticalTerraceStepSize = 1.0f / (TerracesPerSlope + 1);
 const float HexMetrics::StreamBedElevationOffset = 0.f;//-1
 
-float HexMetrics::CellPerturbStrength = 0.5f; // 1.5 is normal
-float HexMetrics::NoiseScale = 0.01f; // 0.01 normal
+float HexMetrics::CellPerturbStrength = 1.f; // 1.5 is normal
+float HexMetrics::NoiseScale = 0.02f; // 0.01 normal
 
 UTexture2D* HexMetrics::NoiseSource = nullptr;TArray<FColor> HexMetrics::NoiseData;
 
@@ -24,6 +24,15 @@ TArray<FVector> HexMetrics::Corners = {
     FVector(-OuterRadius / 2, -InnerRadius, 0.0f), 
     FVector(-OuterRadius, 0.0f, 0.0f),            
     FVector(-OuterRadius / 2, InnerRadius, 0.0f)  
+};
+
+TArray<FVector> HexMetrics::Bridges = {
+    FVector(0.0f, 0.0f, -OuterRadius), // North
+    FVector(InnerRadius, 0.0f, -0.5f * OuterRadius), // NorthEast
+    FVector(InnerRadius, 0.0f, 0.5f * OuterRadius), // SouthEast
+    FVector(0.0f, 0.0f, OuterRadius),  // South
+    FVector(-InnerRadius, 0.0f, 0.5f * OuterRadius), // SouthWest
+    FVector(-InnerRadius, 0.0f, -0.5f * OuterRadius) // NorthWest
 };
 
 FVector HexMetrics::GetFirstSolidCorner(EHexDirection Direction)
@@ -137,4 +146,30 @@ HexMetrics::FEdgeVertices HexMetrics::TerraceLerp(FEdgeVertices A, FEdgeVertices
 EHexDirection HexMetrics::Opposite(EHexDirection Direction)
 {
     return static_cast<EHexDirection>((static_cast<int32>(Direction) + 3) % 6);
+}
+
+ void  HexMetrics::InitializeRotatedDirections(float RotationDegrees)
+{
+    // Original corners and bridges
+    TArray<FVector> OriginalCorners = Corners;
+    TArray<FVector> OriginalBridges = Bridges;
+
+    // Clear existing arrays
+    Corners.Empty();
+    Bridges.Empty();
+
+    // Calculate rotation in radians
+    float RotationRadians = FMath::DegreesToRadians(RotationDegrees);
+    FRotator Rotation(0.0f, RotationDegrees, 0.0f);
+    FQuat RotationQuat = Rotation.Quaternion();
+
+    // Rotate corners
+    for (int32 i = 0; i < 6; i++)
+    {
+        FVector RotatedCorner = RotationQuat.RotateVector(OriginalCorners[i]);
+        Corners.Add(RotatedCorner);
+
+        FVector RotatedBridge = RotationQuat.RotateVector(OriginalBridges[i]);
+        Bridges.Add(RotatedBridge);
+    }
 }

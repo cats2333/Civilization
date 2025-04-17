@@ -199,7 +199,7 @@ void AHexCell::RefreshSelfOnly()
     }
 }
 
-void AHexCell::SetHighlighted(bool bHighlight)
+void AHexCell::SetHighlighted(bool bHighlight, FVector CenterWorldPosition)
 {
     if (bIsHighlighted == bHighlight)
     {
@@ -220,8 +220,6 @@ void AHexCell::SetHighlighted(bool bHighlight)
             if (!MaterialToUse)
             {
                 MaterialToUse = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/EngineMaterials/DefaultDecalMaterial"));
-              /*  UE_LOG(LogTemp, Warning, TEXT("No HighlightMaterial set in BP_Cell for cell (%d, %d), using default material"),
-                    Coordinates.X, Coordinates.Y);*/
             }
 
             UMaterialInstanceDynamic* DynamicMaterial = nullptr;
@@ -255,54 +253,32 @@ void AHexCell::SetHighlighted(bool bHighlight)
         TArray<FVector2D> UV0;
         TArray<FProcMeshTangent> Tangents;
 
-        int32 X = Coordinates.X + (Coordinates.Z - (Coordinates.Z & 1)) / 2; 
-        int32 Z = Coordinates.Z;
-        const float SpacingFactor = 1.0f;
-        float PosX = (X + Z * 0.5f - Z / 2) * (HexMetrics::InnerRadius * 2.0f) * SpacingFactor;
-        float PosY = Z * (HexMetrics::OuterRadius * 1.5f) * SpacingFactor;
-        FVector LocalPosition(PosX, PosY, 0.0f);
+        // Use the provided CenterWorldPosition as the base position
+        FVector WorldPosition = CenterWorldPosition;
 
-        FVector WorldPosition = LocalPosition;
-        WorldPosition.X = LocalPosition.X;
-        WorldPosition.Y = LocalPosition.Y;
-
+        // Transform the world position to local space relative to this actor
         FVector Center = GetActorTransform().InverseTransformPosition(WorldPosition);
 
-        float HighlightOffsetZ = 0.0f; 
-        float OutlineWidth = 0.2f; 
-        float OuterRadius = HexMetrics::OuterRadius; 
+        float HighlightOffsetZ = 0.0f;
+        float OutlineWidth = 0.2f;
+        float OuterRadius = HexMetrics::OuterRadius;
 
-        UE_LOG(LogTemp, Log, TEXT("Coordinates = (%d, %d, %d), LocalPosition = %s, WorldPosition = %s, Center (Relative) = %s"),
+        UE_LOG(LogTemp, Log, TEXT("Coordinates = (%d, %d, %d), WorldPosition = %s, Center (Relative) = %s"),
             Coordinates.X, Coordinates.Y, Coordinates.Z,
-            *LocalPosition.ToString(),
             *WorldPosition.ToString(),
             *Center.ToString());
 
-        TArray<FVector> Corners = PerturbedCorners;
-        if (Corners.Num() != 6)
+        // Use HexMetrics::Corners instead of manual definition
+        TArray<FVector> Corners;
+        Corners.SetNum(6);
+        for (int32 i = 0; i < 6; i++)
         {
-            UE_LOG(LogTemp, Warning, TEXT("PerturbedCorners not initialized for cell (%d, %d), falling back to default corners"),
-                Coordinates.X, Coordinates.Z);
-            float InnerRadius = OuterRadius * FMath::Sqrt(3.0f) / 2.0f;
-            Corners.SetNum(6);
-            Corners[0] = FVector(0.0f, OuterRadius, 0.0f);           // NE
-            Corners[1] = FVector(InnerRadius, OuterRadius / 2, 0.0f); // E
-            Corners[2] = FVector(InnerRadius, -OuterRadius / 2, 0.0f); // SE
-            Corners[3] = FVector(0.0f, -OuterRadius, 0.0f);          // SW
-            Corners[4] = FVector(-InnerRadius, -OuterRadius / 2, 0.0f); // W
-            Corners[5] = FVector(-InnerRadius, OuterRadius / 2, 0.0f);  // NW
-
-            for (int32 i = 0; i < 6; i++)
-            {
-                Corners[i] = Center + Corners[i];
-            }
+            Corners[i] = Center + HexMetrics::Corners[i];
         }
 
         for (int32 i = 0; i < 6; i++)
         {
-            // 外顶点
             FVector OuterCorner = Corners[i];
-            // 计算内顶点（向中心方向偏移）
             FVector DirectionToCenter = (Center - OuterCorner).GetSafeNormal();
             FVector InnerCorner = OuterCorner + DirectionToCenter * OutlineWidth;
 
@@ -311,7 +287,6 @@ void AHexCell::SetHighlighted(bool bHighlight)
             FVector NextDirectionToCenter = (Center - NextOuterCorner).GetSafeNormal();
             FVector NextInnerCorner = NextOuterCorner + NextDirectionToCenter * OutlineWidth;
 
-            // 调整 Z 坐标
             OuterCorner.Z = HighlightOffsetZ;
             InnerCorner.Z = HighlightOffsetZ;
             NextOuterCorner.Z = HighlightOffsetZ;
@@ -339,12 +314,6 @@ void AHexCell::SetHighlighted(bool bHighlight)
             Triangles.Add(VertexIndex + 1);
             Triangles.Add(VertexIndex + 3);
             Triangles.Add(VertexIndex + 2);
-
-            // 添加日志，记录顶点位置
-            /*UE_LOG(LogTemp, Log, TEXT("Highlight Vertex %d (Outer): %s"), VertexIndex, *OuterCorner.ToString());
-            UE_LOG(LogTemp, Log, TEXT("Highlight Vertex %d (Inner): %s"), VertexIndex + 1, *InnerCorner.ToString());
-            UE_LOG(LogTemp, Log, TEXT("Highlight Vertex %d (Next Outer): %s"), VertexIndex + 2, *NextOuterCorner.ToString());
-            UE_LOG(LogTemp, Log, TEXT("Highlight Vertex %d (Next Inner): %s"), VertexIndex + 3, *NextInnerCorner.ToString());*/
         }
 
         UV0.Init(FVector2D(0, 0), Vertices.Num());
@@ -352,6 +321,9 @@ void AHexCell::SetHighlighted(bool bHighlight)
 
         HighlightMeshComponent->CreateMeshSection(0, Vertices, Triangles, Normals, UV0, VertexColors, Tangents, false);
         HighlightMeshComponent->SetVisibility(true);
+
+        // Set the mesh component's world position to match the cell
+        HighlightMeshComponent->SetWorldLocation(WorldPosition);
 
         UE_LOG(LogTemp, Log, TEXT("HighlightMeshComponent Visibility = %d, IsRegistered = %d, World Position = %s"),
             HighlightMeshComponent->IsVisible(),

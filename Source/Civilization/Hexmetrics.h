@@ -28,8 +28,8 @@ struct HexMetrics
     static UTexture2D* NoiseSource;
     static TArray<FColor> NoiseData;
 
-    // 调整后的顶点，模拟顺时针 90 度旋转
     static TArray<FVector> Corners;
+    static TArray<FVector> Bridges;
 
     struct FEdgeVertices
     {
@@ -75,6 +75,7 @@ struct HexMetrics
     static FEdgeVertices TerraceLerp(FEdgeVertices A, FEdgeVertices B, int32 Step);
 
     static EHexDirection Opposite(EHexDirection Direction);
+    static void InitializeRotatedDirections(float RotationDegrees);
 };
 
 // 初始化 Corners

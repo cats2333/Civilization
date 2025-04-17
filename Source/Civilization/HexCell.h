@@ -93,7 +93,7 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Hex Cell")
     void RefreshSelfOnly();
 
-    void SetHighlighted(bool bHighlight);
+    void SetHighlighted(bool bHighlight, FVector CenterWorldPosition);
 
     UFUNCTION(BlueprintCallable, Category = "HexCell")
     bool IsHighlighted() const { return bIsHighlighted; }

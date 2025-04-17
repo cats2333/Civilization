@@ -13,6 +13,7 @@ AHexGrid::AHexGrid()
 void AHexGrid::BeginPlay()
 {
     Super::BeginPlay();
+    HexMetrics::InitializeRotatedDirections(90.0f); // Adjust based on your actual rotation
     HexMetrics::NoiseSource = NoiseSource;
 
     CellCountX = ChunkCountX * HexMetrics::ChunkSizeX;

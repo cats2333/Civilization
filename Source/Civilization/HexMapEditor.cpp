@@ -181,9 +181,9 @@ void UHexMapEditor::EditCells(AHexCell* Center)
 
     if (CurrentHighlightedCell && CurrentHighlightedCell != Center)
     {
-        CurrentHighlightedCell->SetHighlighted(false);
+        CurrentHighlightedCell->SetHighlighted(false, Center->GetActorLocation());
     }
-    Center->SetHighlighted(true);
+    Center->SetHighlighted(true, Center->GetActorLocation());
     CurrentHighlightedCell = Center;
 
     if (EditMode == EEditMode::Road || EditMode == EEditMode::Elevation || BrushSize <= 1)
