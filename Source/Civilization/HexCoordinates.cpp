@@ -8,7 +8,8 @@ FHexCoordinates FHexCoordinates::FromPosition(FVector Position, int32 GridHeight
 
     float Z = (OldPosY / (HexMetrics::OuterRadius * 1.5f * SpacingFactor)) + (GridHeight - 1) / 2.0f;
     float TempX = OldPosX / (HexMetrics::InnerRadius * 2.0f * SpacingFactor);
-    float X = TempX - (Z * 0.5f - Z / 2);
+    float OffsetZ = FMath::RoundToInt(Z);
+    float X = TempX - (OffsetZ / 2.0f); // Corrected X adjustment
 
     int32 iX = FMath::RoundToInt(X);
     int32 iZ = FMath::RoundToInt(Z);

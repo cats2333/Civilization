@@ -16,7 +16,7 @@ UHexMapEditor::UHexMapEditor()
     CurrentHighlightedCell = nullptr;
     BrushSize = 1;
     ActiveElevation = 0;
-    MoveSpeed = 30.0f;
+    MoveSpeed = 60.0f;
     SwivelMinZoom = 5.0f;
     SwivelMaxZoom = 80.0f;
 }

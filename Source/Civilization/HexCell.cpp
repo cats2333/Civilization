@@ -255,25 +255,22 @@ void AHexCell::SetHighlighted(bool bHighlight)
         TArray<FVector2D> UV0;
         TArray<FProcMeshTangent> Tangents;
 
-        // 通过 Coordinates 计算格子的局部坐标（相对于 AHexGrid）
-        int32 X = Coordinates.X + (Coordinates.Z - (Coordinates.Z & 1)) / 2; // 偏移坐标 X
-        int32 Z = Coordinates.Z; // 偏移坐标 Z
+        int32 X = Coordinates.X + (Coordinates.Z - (Coordinates.Z & 1)) / 2; 
+        int32 Z = Coordinates.Z;
         const float SpacingFactor = 1.0f;
         float PosX = (X + Z * 0.5f - Z / 2) * (HexMetrics::InnerRadius * 2.0f) * SpacingFactor;
         float PosY = Z * (HexMetrics::OuterRadius * 1.5f) * SpacingFactor;
         FVector LocalPosition(PosX, PosY, 0.0f);
 
-        // 转换为世界坐标，调整为 (X, Y) -> (X, Y)
         FVector WorldPosition = LocalPosition;
         WorldPosition.X = LocalPosition.X;
         WorldPosition.Y = LocalPosition.Y;
 
-        // 由于 HighlightMeshComponent 使用 KeepRelativeTransform，转换回 AHexCell 的局部坐标
         FVector Center = GetActorTransform().InverseTransformPosition(WorldPosition);
 
-        float HighlightOffsetZ = 0.0f; // 调低高度
-        float OutlineWidth = 0.2f; // 描边宽度
-        float OuterRadius = HexMetrics::OuterRadius; // 六边形外径
+        float HighlightOffsetZ = 0.0f; 
+        float OutlineWidth = 0.2f; 
+        float OuterRadius = HexMetrics::OuterRadius; 
 
         UE_LOG(LogTemp, Log, TEXT("Coordinates = (%d, %d, %d), LocalPosition = %s, WorldPosition = %s, Center (Relative) = %s"),
             Coordinates.X, Coordinates.Y, Coordinates.Z,
@@ -281,15 +278,14 @@ void AHexCell::SetHighlighted(bool bHighlight)
             *WorldPosition.ToString(),
             *Center.ToString());
 
-        // 使用存储的扰动顶点
         TArray<FVector> Corners = PerturbedCorners;
         if (Corners.Num() != 6)
         {
             UE_LOG(LogTemp, Warning, TEXT("PerturbedCorners not initialized for cell (%d, %d), falling back to default corners"),
                 Coordinates.X, Coordinates.Z);
-            float InnerRadius = OuterRadius * FMath::Sqrt(3.0f) / 2.0f; // 六边形内径
+            float InnerRadius = OuterRadius * FMath::Sqrt(3.0f) / 2.0f;
             Corners.SetNum(6);
-            Corners[0] = FVector(0.0f, OuterRadius, 0.0f);           // NE (尖顶)
+            Corners[0] = FVector(0.0f, OuterRadius, 0.0f);           // NE
             Corners[1] = FVector(InnerRadius, OuterRadius / 2, 0.0f); // E
             Corners[2] = FVector(InnerRadius, -OuterRadius / 2, 0.0f); // SE
             Corners[3] = FVector(0.0f, -OuterRadius, 0.0f);          // SW
@@ -302,7 +298,6 @@ void AHexCell::SetHighlighted(bool bHighlight)
             }
         }
 
-        // 构造空心描边
         for (int32 i = 0; i < 6; i++)
         {
             // 外顶点
