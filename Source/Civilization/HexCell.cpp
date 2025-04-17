@@ -11,6 +11,7 @@ AHexCell::AHexCell()
     PrimaryActorTick.bCanEverTick = false;
 
     Neighbors.Init(nullptr, 6);
+    PerturbedCorners.SetNum(6); // Initialize empty, will be set during triangulation
 
     SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
     RootComponent = SceneRoot;
@@ -22,7 +23,7 @@ AHexCell::AHexCell()
     Elevation = 0;
 
     HighlightMeshComponent = nullptr;
-    HighlightMaterial = nullptr; // 初始化为空，靠蓝图设置
+    HighlightMaterial = nullptr;
 }
 
 void AHexCell::SetupCell(int32 X, int32 Z, const FVector& Position)
@@ -253,38 +254,61 @@ void AHexCell::SetHighlighted(bool bHighlight, FVector CenterWorldPosition)
         TArray<FVector2D> UV0;
         TArray<FProcMeshTangent> Tangents;
 
-        // Use the provided CenterWorldPosition as the base position
-        FVector WorldPosition = CenterWorldPosition;
-
-        // Transform the world position to local space relative to this actor
-        FVector Center = GetActorTransform().InverseTransformPosition(WorldPosition);
+        FVector Center = CenterWorldPosition;
 
         float HighlightOffsetZ = 0.0f;
-        float OutlineWidth = 0.2f;
-        float OuterRadius = HexMetrics::OuterRadius;
+        float OutlineWidth = HexMetrics::OuterRadius * 0.1f;
 
-        UE_LOG(LogTemp, Log, TEXT("Coordinates = (%d, %d, %d), WorldPosition = %s, Center (Relative) = %s"),
+        const float SpacingFactor = HexMetrics::SpacingFactor;
+        int32 X = Coordinates.X + (Coordinates.Z - (Coordinates.Z & 1)) / 2;
+        int32 Z = Coordinates.Z;
+        float PosX = (X + Z * 0.5f - Z / 2) * (HexMetrics::InnerRadius * 2.0f) * SpacingFactor;
+        float PosY = Z * (HexMetrics::OuterRadius * 1.5f) * SpacingFactor;
+        FVector AdjustedCenter = Center + FVector(PosX, PosY, 0.0f);
+
+        UE_LOG(LogTemp, Log, TEXT("Coordinates = (%d, %d, %d), WorldPosition = %s, Center = %s, AdjustedCenter = %s"),
             Coordinates.X, Coordinates.Y, Coordinates.Z,
-            *WorldPosition.ToString(),
-            *Center.ToString());
+            *CenterWorldPosition.ToString(),
+            *Center.ToString(),
+            *AdjustedCenter.ToString());
 
-        // Use HexMetrics::Corners instead of manual definition
         TArray<FVector> Corners;
         Corners.SetNum(6);
         for (int32 i = 0; i < 6; i++)
         {
-            Corners[i] = Center + HexMetrics::Corners[i];
+            if (PerturbedCorners[i].IsZero())
+            {
+                UE_LOG(LogTemp, Warning, TEXT("PerturbedCorners not initialized for cell (%d, %d), generating now"),
+                    Coordinates.X, Coordinates.Z);
+                FVector BaseCorner = HexMetrics::Corners[i];
+                FVector WorldCorner = GetActorLocation() + BaseCorner;
+                FVector PerturbedWorldCorner = HexMetrics::Perturb(WorldCorner);
+                Corners[i] = PerturbedWorldCorner - GetActorLocation();
+            }
+            else
+            {
+                Corners[i] = PerturbedCorners[i];
+            }
+            // Apply SolidFactor to match the mesh's inner solid part
+            Corners[i] *= HexMetrics::SolidFactor;
+        }
+
+        for (int32 i = 0; i < 6; i++)
+        {
+            Corners[i] = AdjustedCenter + Corners[i];
+            UE_LOG(LogTemp, Log, TEXT("Highlight Corner %d for cell (%d, %d): %s"),
+                i, Coordinates.X, Coordinates.Z, *Corners[i].ToString());
         }
 
         for (int32 i = 0; i < 6; i++)
         {
             FVector OuterCorner = Corners[i];
-            FVector DirectionToCenter = (Center - OuterCorner).GetSafeNormal();
+            FVector DirectionToCenter = (AdjustedCenter - OuterCorner).GetSafeNormal();
             FVector InnerCorner = OuterCorner + DirectionToCenter * OutlineWidth;
 
             int32 NextI = (i + 1) % 6;
             FVector NextOuterCorner = Corners[NextI];
-            FVector NextDirectionToCenter = (Center - NextOuterCorner).GetSafeNormal();
+            FVector NextDirectionToCenter = (AdjustedCenter - NextOuterCorner).GetSafeNormal();
             FVector NextInnerCorner = NextOuterCorner + NextDirectionToCenter * OutlineWidth;
 
             OuterCorner.Z = HighlightOffsetZ;
@@ -322,8 +346,7 @@ void AHexCell::SetHighlighted(bool bHighlight, FVector CenterWorldPosition)
         HighlightMeshComponent->CreateMeshSection(0, Vertices, Triangles, Normals, UV0, VertexColors, Tangents, false);
         HighlightMeshComponent->SetVisibility(true);
 
-        // Set the mesh component's world position to match the cell
-        HighlightMeshComponent->SetWorldLocation(WorldPosition);
+        HighlightMeshComponent->SetWorldLocation(CenterWorldPosition);
 
         UE_LOG(LogTemp, Log, TEXT("HighlightMeshComponent Visibility = %d, IsRegistered = %d, World Position = %s"),
             HighlightMeshComponent->IsVisible(),
@@ -341,5 +364,28 @@ void AHexCell::SetHighlighted(bool bHighlight, FVector CenterWorldPosition)
         }
 
         UE_LOG(LogTemp, Log, TEXT("Removed highlight from cell (%d, %d)"), Coordinates.X, Coordinates.Z);
+    }
+}
+
+void AHexCell::Perturb()
+{
+    PerturbedCorners.Empty();
+    PerturbedCorners.SetNum(6);
+
+    // Get the world position of the cell to align perturbation with world space
+    FVector CellWorldPosition = GetActorLocation();
+
+    for (int32 i = 0; i < 6; i++)
+    {
+        FVector BaseCorner = HexMetrics::Corners[i];
+        // Transform the local corner position to world space before perturbing
+        FVector WorldCorner = CellWorldPosition + BaseCorner;
+        FVector PerturbedWorldCorner = HexMetrics::Perturb(WorldCorner);
+        // Transform back to local space relative to the cell
+        PerturbedCorners[i] = PerturbedWorldCorner - CellWorldPosition;
+        UE_LOG(LogTemp, Log, TEXT("Perturbed Corner %d for cell (%d, %d): BaseCorner=%s, WorldCorner=%s, PerturbedWorldCorner=%s, PerturbedCorners[%d]=%s"),
+            i, Coordinates.X, Coordinates.Z,
+            *BaseCorner.ToString(), *WorldCorner.ToString(), *PerturbedWorldCorner.ToString(),
+            i, *PerturbedCorners[i].ToString());
     }
 }

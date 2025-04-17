@@ -95,6 +95,8 @@ public:
 
     void SetHighlighted(bool bHighlight, FVector CenterWorldPosition);
 
+    void Perturb();
+
     UFUNCTION(BlueprintCallable, Category = "HexCell")
     bool IsHighlighted() const { return bIsHighlighted; }
 

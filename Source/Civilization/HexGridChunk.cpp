@@ -38,6 +38,8 @@ AHexGridChunk::AHexGridChunk()
 void AHexGridChunk::BeginPlay()
 {
     Super::BeginPlay();
+    //HexMetrics::Initialize();
+    //UE_LOG(LogTemp, Log, TEXT("AHexGridChunk::BeginPlay called for chunk at %s"), *GetActorLocation().ToString());
     TriangulateCells();
 }
 
@@ -69,24 +71,36 @@ void AHexGridChunk::TriangulateCells()
         FVector Center = Cell->GetPosition();
         FColor SRGBColor = Cell->Color.ToFColor(true);
 
+        // Generate perturbed corners using HexMetrics::Corners (not scaled by SolidFactor)
         TArray<FVector> CellCorners;
         CellCorners.SetNum(6);
         for (int32 i = 0; i < 6; i++)
         {
-            EHexDirection Direction = static_cast<EHexDirection>(i);
-            FVector Corner = Center + HexMetrics::GetFirstSolidCorner(Direction);
-            CellCorners[i] = HexMetrics::Perturb(Corner);
-            //UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d) Corner %d (%s): %s"),
-            //    Cell->Coordinates.X, Cell->Coordinates.Z, i, *UEnum::GetValueAsString(Direction), *CellCorners[i].ToString());
+            FVector BaseCorner = HexMetrics::Corners[i];
+            FVector WorldCorner = Center + BaseCorner;
+            CellCorners[i] = HexMetrics::Perturb(WorldCorner);
+            // Store as local coordinates
+            Cell->PerturbedCorners[i] = CellCorners[i] - Center;
+            //UE_LOG(LogTemp, Log, TEXT("Cell (%d, %d) Corner %d: World=%s, Local=%s"),
+            //    Cell->Coordinates.X, Cell->Coordinates.Z, i,
+            //    *CellCorners[i].ToString(), *Cell->PerturbedCorners[i].ToString());
         }
-        Cell->PerturbedCorners = CellCorners;
 
+        // Use perturbed corners for the mesh (scaled by SolidFactor for the inner solid part)
+        TArray<FVector> SolidCorners;
+        SolidCorners.SetNum(6);
+        for (int32 i = 0; i < 6; i++)
+        {
+            SolidCorners[i] = Center + Cell->PerturbedCorners[i] * HexMetrics::SolidFactor;
+        }
+
+        // Triangulate the cell using the solid corners
         for (int32 i = 0; i < 6; i++)
         {
             EHexDirection Direction = static_cast<EHexDirection>(i);
             HexMetrics::FEdgeVertices E = HexMetrics::FEdgeVertices(
-                Center + HexMetrics::GetFirstSolidCorner(Direction),
-                Center + HexMetrics::GetSecondSolidCorner(Direction)
+                SolidCorners[i],
+                SolidCorners[(i + 1) % 6]
             );
 
             TriangulateEdgeFan(Center, E, SRGBColor);

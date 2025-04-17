@@ -21,7 +21,7 @@ struct HexMetrics
     static const float HorizontalTerraceStepSize;
     static const float VerticalTerraceStepSize;
     static const float StreamBedElevationOffset;
-
+    static float SpacingFactor;
     static float CellPerturbStrength;
     static float NoiseScale;
 
@@ -75,6 +75,7 @@ struct HexMetrics
     static FEdgeVertices TerraceLerp(FEdgeVertices A, FEdgeVertices B, int32 Step);
 
     static EHexDirection Opposite(EHexDirection Direction);
+    static void Initialize();
     static void InitializeRotatedDirections(float RotationDegrees);
 };
 

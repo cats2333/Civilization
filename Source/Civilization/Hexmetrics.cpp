@@ -3,8 +3,9 @@
 #include "Math/Vector4.h"
 #include "Engine/Texture2D.h"
 
-const float HexMetrics::OuterRadius = 10.0f;
+const float HexMetrics::OuterRadius = 1.0f;
 const float HexMetrics::InnerRadius = OuterRadius * FMath::Sqrt(3.0f) / 2.0f;
+float HexMetrics::SpacingFactor = 0.5f;
 const float HexMetrics::SolidFactor = 0.75f;
 const float HexMetrics::BlendFactor = 1.0f - SolidFactor;
 const float HexMetrics::ElevationStep = 1.0f;
@@ -12,8 +13,8 @@ const float HexMetrics::HorizontalTerraceStepSize = 1.0f / TerraceSteps;
 const float HexMetrics::VerticalTerraceStepSize = 1.0f / (TerracesPerSlope + 1);
 const float HexMetrics::StreamBedElevationOffset = 0.f;//-1
 
-float HexMetrics::CellPerturbStrength = 1.f; // 1.5 is normal
-float HexMetrics::NoiseScale = 0.02f; // 0.01 normal
+float HexMetrics::CellPerturbStrength = 0.5f; // 1.5 is normal
+float HexMetrics::NoiseScale = 0.01f; // 0.01 normal
 
 UTexture2D* HexMetrics::NoiseSource = nullptr;TArray<FColor> HexMetrics::NoiseData;
 
@@ -146,6 +147,13 @@ HexMetrics::FEdgeVertices HexMetrics::TerraceLerp(FEdgeVertices A, FEdgeVertices
 EHexDirection HexMetrics::Opposite(EHexDirection Direction)
 {
     return static_cast<EHexDirection>((static_cast<int32>(Direction) + 3) % 6);
+}
+
+// Static initialization method
+void HexMetrics::Initialize()
+{
+    // Rotate corners and bridges by 90 degrees
+    InitializeRotatedDirections(90.0f);
 }
 
  void  HexMetrics::InitializeRotatedDirections(float RotationDegrees)
