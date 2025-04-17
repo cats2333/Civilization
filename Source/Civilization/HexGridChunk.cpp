@@ -69,7 +69,6 @@ void AHexGridChunk::TriangulateCells()
         FVector Center = Cell->GetPosition();
         FColor SRGBColor = Cell->Color.ToFColor(true);
 
-        // 计算并存储扰动后的顶点
         TArray<FVector> CellCorners;
         CellCorners.SetNum(6);
         for (int32 i = 0; i < 6; i++)

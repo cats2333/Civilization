@@ -16,22 +16,14 @@ float HexMetrics::CellPerturbStrength = 0.5f; // 1.5 is normal
 float HexMetrics::NoiseScale = 0.01f; // 0.01 normal
 
 UTexture2D* HexMetrics::NoiseSource = nullptr;TArray<FColor> HexMetrics::NoiseData;
-//TArray<FVector> HexMetrics::Corners = {
-//    FVector(-OuterRadius / 2, -InnerRadius, 0.0f), // N (原 NW)
-//    FVector(-OuterRadius, 0.0f, 0.0f),             // E (原 NE)
-//    FVector(-OuterRadius / 2, InnerRadius, 0.0f),  // SE (原 E)
-//    FVector(OuterRadius / 2, InnerRadius, 0.0f),   // S (原 SE)
-//    FVector(OuterRadius, 0.0f, 0.0f),              // W (原 SW)
-//    FVector(OuterRadius / 2, -InnerRadius, 0.0f)   // NW (原 W)
-//};
 
 TArray<FVector> HexMetrics::Corners = {
-    FVector(OuterRadius / 2, InnerRadius, 0.0f),   // NE (原 NW)
-    FVector(OuterRadius, 0.0f, 0.0f),              // E (原 NE)
-    FVector(OuterRadius / 2, -InnerRadius, 0.0f),  // SE (原 E)
-    FVector(-OuterRadius / 2, -InnerRadius, 0.0f), // SW (原 SE)
-    FVector(-OuterRadius, 0.0f, 0.0f),             // W (原 SW)
-    FVector(-OuterRadius / 2, InnerRadius, 0.0f)   // NW (原 W)
+    FVector(OuterRadius / 2, InnerRadius, 0.0f), 
+    FVector(OuterRadius, 0.0f, 0.0f),              
+    FVector(OuterRadius / 2, -InnerRadius, 0.0f), 
+    FVector(-OuterRadius / 2, -InnerRadius, 0.0f), 
+    FVector(-OuterRadius, 0.0f, 0.0f),            
+    FVector(-OuterRadius / 2, InnerRadius, 0.0f)  
 };
 
 FVector HexMetrics::GetFirstSolidCorner(EHexDirection Direction)
@@ -120,8 +112,8 @@ FVector HexMetrics::TerraceLerp(FVector A, FVector B, int32 Step)
 {
     float H = Step * HorizontalTerraceStepSize;
     A.X += (B.X - A.X) * H;
-    A.Y += (B.Y - A.Y) * H; // Unreal 中 Y 是水平方向
-    float V = ((Step + 1) / 2) * VerticalTerraceStepSize; // 奇数步调整高度
+    A.Y += (B.Y - A.Y) * H;
+    float V = ((Step + 1) / 2) * VerticalTerraceStepSize;
     A.Z += (B.Z - A.Z) * V;
     return A;
 }

@@ -22,7 +22,6 @@ void AHexGrid::BeginPlay()
     UE_LOG(LogTemp, Log, TEXT("CellCountX: %d, CellCountZ: %d, Width: %d, Height: %d"),
         CellCountX, CellCountZ, Width, Height);
 
-    // 初始化 NoiseData
     if (NoiseSource && NoiseSource->GetPlatformData())
     {
         FTexturePlatformData* PlatformData = NoiseSource->GetPlatformData();
@@ -79,7 +78,7 @@ void AHexGrid::CreateCells()
         {
             float OldPosX = (X + Z * 0.5f - Z / 2) * (HexMetrics::InnerRadius * 2.0f) * SpacingFactor;
             float OldPosY = (Z - (Height - 1) / 2.0f) * (HexMetrics::OuterRadius * 1.5f) * SpacingFactor;
-            float PosX = OldPosX; // 修正方向
+            float PosX = OldPosX;
             float PosY = OldPosY;
             FVector Position(PosX, PosY, 0.0f);
 

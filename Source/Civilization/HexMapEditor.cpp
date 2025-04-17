@@ -13,7 +13,7 @@ UHexMapEditor::UHexMapEditor()
     PrimaryComponentTick.bCanEverTick = true;
     bIsFirstClick = true;
     PreviousCell = nullptr;
-    CurrentHighlightedCell = nullptr; // 初始化
+    CurrentHighlightedCell = nullptr;
     BrushSize = 1;
     ActiveElevation = 0;
     MoveSpeed = 30.0f;
@@ -112,7 +112,6 @@ void UHexMapEditor::TickComponent(float DeltaTime, ELevelTick TickType, FActorCo
 
 void UHexMapEditor::ShowEditorUI(bool bVisible)
 {
-    // 空实现，待 UI 逻辑
 }
 
 void UHexMapEditor::HandleInput()
@@ -180,7 +179,6 @@ void UHexMapEditor::EditCells(AHexCell* Center)
     LOG_TO_FILE(LogTemp, Log, TEXT("EditCells: Center at (%d, %d), BrushSize=%d"),
         Center->Coordinates.X, Center->Coordinates.Z, BrushSize);
 
-    // 确保单一高亮
     if (CurrentHighlightedCell && CurrentHighlightedCell != Center)
     {
         CurrentHighlightedCell->SetHighlighted(false);
